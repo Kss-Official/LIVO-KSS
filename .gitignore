@@ -21,3 +21,11 @@ target/
 *.tmp
 Thumbs.db
 .DS_Store
+
+# Frontend Node / Build
+node_modules/
+**/node_modules/
+.expo/
+dist/
+build/
+
