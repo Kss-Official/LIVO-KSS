@@ -1,0 +1,23 @@
+# Keep Documentation folder local only (never pushed to GitHub)
+Documentation/
+
+# Ignore large archives
+*.zip
+
+# Maven build outputs
+target/
+**/target/
+
+# Environment files with secrets
+.env
+*.env
+.env.local
+
+# IDE configurations
+.idea/
+*.iml
+.vscode/
+*.log
+*.tmp
+Thumbs.db
+.DS_Store
