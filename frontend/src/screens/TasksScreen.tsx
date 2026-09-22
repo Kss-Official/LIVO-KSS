@@ -15,6 +15,7 @@ import {
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
 import { AddTaskScreen } from './AddTaskScreen';
+import { AddOptainsScreen } from './AddOptainsScreen';
 
 export type TaskPriority = 'High' | 'Medium' | 'Low';
 export type TaskCategory = 'Work' | 'Learning' | 'Personal' | 'Health' | 'Finance';
@@ -37,7 +38,8 @@ interface TasksScreenProps {
 }
 
 export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddModal = false }) => {
-  const [showAddTaskScreen, setShowAddTaskScreen] = useState(autoOpenAddModal);
+  const [showAddTaskScreen, setShowAddTaskScreen] = useState(false);
+  const [showAddOptainsScreen, setShowAddOptainsScreen] = useState(autoOpenAddModal);
   // Task Data State initialized with exact items from the image mockup
   const [tasks, setTasks] = useState<TaskItem[]>([
     {
@@ -126,6 +128,10 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
 
   // AI Suggestion Banner visibility
   const [showAiBanner, setShowAiBanner] = useState(true);
+
+  if (showAddOptainsScreen) {
+    return <AddOptainsScreen onBack={() => setShowAddOptainsScreen(false)} />;
+  }
 
   if (showAddTaskScreen) {
     return (
@@ -402,7 +408,7 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
 
           <TouchableOpacity
             style={styles.addTaskBtn}
-            onPress={() => setShowAddTaskScreen(true)}
+            onPress={() => setShowAddOptainsScreen(true)}
             activeOpacity={0.85}
           >
             <Feather name="plus" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />

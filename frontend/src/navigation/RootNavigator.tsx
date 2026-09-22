@@ -26,6 +26,7 @@ import { AddExpenseScreen } from '../screens/AddExpenseScreen';
 import { AddTripScreen } from '../screens/AddTripScreen';
 import { AddLearningScreen } from '../screens/AddLearningScreen';
 import { AddHealthScreen } from '../screens/AddHealthScreen';
+import { AddOptainsScreen } from '../screens/AddOptainsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -210,6 +211,9 @@ export const RootNavigator: React.FC = () => {
         </Stack.Screen>
         <Stack.Screen name="AddHealth">
           {(props) => <AddHealthScreen onBack={() => props.navigation.goBack()} />}
+        </Stack.Screen>
+        <Stack.Screen name="AddOptains">
+          {(props) => <AddOptainsScreen onBack={() => props.navigation.goBack()} />}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
