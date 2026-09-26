@@ -31,7 +31,6 @@ export const useAi = () => {
       id: Date.now().toString(),
       text,
       sender: 'USER',
-      isUser: true,
       timestamp: new Date().toISOString(),
     };
     
@@ -49,7 +48,6 @@ export const useAi = () => {
         id: (Date.now() + 1).toString(),
         text: reply.content,
         sender: 'LIVO_AI',
-        isUser: false,
         timestamp: new Date().toISOString(),
       };
 
