@@ -24,13 +24,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [error, setError] = useState<string | null>(null);
 
   const handleLogin = () => {
-    if (!email.trim() || !password) {
-      setError('Please enter both email and password');
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters.');
       return;
     }
     setError(null);
-    onLogin?.(email.trim(), password);
-    console.log('Logging in with', { email, password });
+    onLogin?.(trimmedEmail, password);
+    console.log('Logging in with', { email: trimmedEmail, password });
   };
 
   return (

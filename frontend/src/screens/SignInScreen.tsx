@@ -43,11 +43,37 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
 
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
   const handleSignIn = () => {
+    let hasError = false;
+
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setEmailError('Please enter a valid email address.');
+      hasError = true;
+    } else {
+      setEmailError('');
+    }
+
+    if (!password) {
+      setPasswordError('Please enter your password.');
+      hasError = true;
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      hasError = true;
+    } else {
+      setPasswordError('');
+    }
+
+    if (hasError) return;
+
     if (onSignInSubmit) {
-      onSignInSubmit({ email, password });
+      onSignInSubmit({ email: trimmedEmail, password });
     } else if (onCreateAccount) {
-      onCreateAccount({ name: '', email, password });
+      onCreateAccount({ name: '', email: trimmedEmail, password });
     }
   };
 
@@ -110,14 +136,21 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({
           {/* Form Fields */}
           <View style={styles.formContainer}>
             {/* Email */}
-            <View style={[styles.inputWrapper, emailFocused && styles.inputWrapperFocused]}>
-              <Feather name="mail" size={18} color={emailFocused ? '#95E612' : '#94A3B8'} style={styles.inputIcon} />
+            <View style={[
+              styles.inputWrapper,
+              emailFocused && styles.inputWrapperFocused,
+              !!emailError && styles.inputWrapperError,
+            ]}>
+              <Feather name="mail" size={18} color={emailError ? '#EF4444' : emailFocused ? '#95E612' : '#94A3B8'} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email address"
                 placeholderTextColor="#94A3B8"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (emailError) setEmailError('');
+                }}
                 onFocus={() => setEmailFocused(true)}
                 onBlur={() => setEmailFocused(false)}
                 keyboardType="email-address"
@@ -125,13 +158,18 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({
                 returnKeyType="next"
               />
             </View>
+            {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
 
             {/* Password */}
-            <View style={[styles.inputWrapper, passwordFocused && styles.inputWrapperFocused]}>
+            <View style={[
+              styles.inputWrapper,
+              passwordFocused && styles.inputWrapperFocused,
+              !!passwordError && styles.inputWrapperError,
+            ]}>
               <MaterialCommunityIcons
                 name="lock-outline"
                 size={19}
-                color={passwordFocused ? '#95E612' : '#94A3B8'}
+                color={passwordError ? '#EF4444' : passwordFocused ? '#95E612' : '#94A3B8'}
                 style={styles.inputIcon}
               />
               <TextInput
@@ -139,7 +177,10 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({
                 placeholder="Password"
                 placeholderTextColor="#94A3B8"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (passwordError) setPasswordError('');
+                }}
                 onFocus={() => setPasswordFocused(true)}
                 onBlur={() => setPasswordFocused(false)}
                 secureTextEntry={!showPassword}
@@ -158,6 +199,7 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({
                 />
               </TouchableOpacity>
             </View>
+            {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
 
             {/* Forgot Password Link (Aligned Right) */}
             <TouchableOpacity
@@ -356,6 +398,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+  },
+  inputWrapperError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '600',
+    marginTop: -8,
+    marginBottom: 12,
+    marginLeft: 4,
   },
   inputIcon: {
     marginRight: 12,

@@ -13,15 +13,27 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 interface TimeDetailsScreenProps {
   onBack?: () => void;
 }
 
 export const TimeDetailsScreen: React.FC<TimeDetailsScreenProps> = ({ onBack }) => {
+  const navigation = useNavigation<any>();
   const [selectedTimeframe, setSelectedTimeframe] = useState<'This Week' | 'Last Week' | 'This Month'>('This Week');
   const [showTimeframeModal, setShowTimeframeModal] = useState(false);
   const [chartView, setChartView] = useState<'Daily' | 'Weekly' | 'Category'>('Daily');
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs');
+    }
+  };
 
   // Legend & Donut category data
   const categories = [
@@ -68,7 +80,7 @@ export const TimeDetailsScreen: React.FC<TimeDetailsScreenProps> = ({ onBack }) 
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={onBack}
+            onPress={handleBack}
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >

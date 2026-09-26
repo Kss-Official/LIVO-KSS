@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,11 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Image,
 } from 'react-native';
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { AiScreen } from './AiScreen';
-import { AddTaskScreen } from './AddTaskScreen';
-import { AddEventScreen } from './AddEventScreen';
-import { AddGoalScreen } from './AddGoalScreen';
-import { AddHabitScreen } from './AddHabitScreen';
-import { AddExpenseScreen } from './AddExpenseScreen';
-import { AddTripScreen } from './AddTripScreen';
-import { AddLearningScreen } from './AddLearningScreen';
-import { AddHealthScreen } from './AddHealthScreen';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useProfile } from '../hooks/useProfile';
 
 interface AddHubScreenProps {
   onBack?: () => void;
@@ -27,49 +20,31 @@ interface AddHubScreenProps {
 }
 
 export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelectOption }) => {
-  const [currentView, setCurrentView] = useState<'hub' | 'ai' | 'addTask' | 'addEvent' | 'addGoal' | 'addHabit' | 'addExpense' | 'addTrip' | 'addLearning' | 'addHealth'>('hub');
+  const navigation = useNavigation<any>();
+  const { profile, refreshProfile } = useProfile();
 
   useFocusEffect(
     useCallback(() => {
-      setCurrentView('hub');
-    }, [])
+      refreshProfile?.();
+    }, [refreshProfile])
   );
 
-  if (currentView === 'addTask') {
-    return <AddTaskScreen onBack={() => setCurrentView('hub')} />;
-  }
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs');
+    }
+  };
 
-  if (currentView === 'addEvent') {
-    return <AddEventScreen onBack={() => setCurrentView('hub')} />;
-  }
-
-  if (currentView === 'addGoal') {
-    return <AddGoalScreen onBack={() => setCurrentView('hub')} />;
-  }
-
-  if (currentView === 'addHabit') {
-    return <AddHabitScreen onBack={() => setCurrentView('hub')} />;
-  }
-
-  if (currentView === 'addExpense') {
-    return <AddExpenseScreen onBack={() => setCurrentView('hub')} />;
-  }
-
-  if (currentView === 'addTrip') {
-    return <AddTripScreen onBack={() => setCurrentView('hub')} />;
-  }
-
-  if (currentView === 'addLearning') {
-    return <AddLearningScreen onBack={() => setCurrentView('hub')} />;
-  }
-
-  if (currentView === 'addHealth') {
-    return <AddHealthScreen onBack={() => setCurrentView('hub')} />;
-  }
-
-  if (currentView === 'ai') {
-    return <AiScreen onBack={() => setCurrentView('hub')} />;
-  }
+  const handleNavigate = (screenName: string, params?: any) => {
+    if (onSelectOption) {
+      onSelectOption(screenName);
+    }
+    navigation.navigate(screenName, params);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -82,44 +57,61 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
       >
         {/* Top Header */}
         <View style={styles.headerRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {onBack && (
-              <TouchableOpacity
-                onPress={onBack}
-                style={{ marginRight: 10, padding: 4 }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Feather name="arrow-left" size={22} color="#0F172A" />
-              </TouchableOpacity>
-            )}
+          <View style={styles.headerLeftWrap}>
+            <TouchableOpacity
+              onPress={handleBack}
+              style={styles.backBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Feather name="arrow-left" size={22} color="#0F172A" />
+            </TouchableOpacity>
+
             <View>
-              <View style={styles.logoRow}>
-                <Text style={styles.logoText}>LIVO</Text>
-                <View style={styles.logoDot} />
-              </View>
+              <Image
+                source={require('../../assets/livo_logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <Text style={styles.logoSubtitle}>A BETTER YOU</Text>
             </View>
           </View>
 
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>R</Text>
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.navigate('Search')}
+              activeOpacity={0.7}
+            >
+              <Feather name="search" size={18} color="#0F172A" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.navigate('Notifications')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="notifications-outline" size={18} color="#0F172A" />
+              <View style={styles.notificationBadge} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.avatarCircle}
+              onPress={() => navigation.navigate('Profile')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.avatarText}>{profile?.name?.charAt(0)?.toUpperCase() || 'R'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Title Section + Handwritten Oval Badge */}
+        {/* Title Section */}
         <View style={styles.titleSection}>
           <View style={styles.titleLeft}>
             <Text style={styles.mainTitle}>Add</Text>
             <Text style={styles.mainSubtitle}>
               Capture today. Build a better tomorrow.
             </Text>
-          </View>
-
-          <View style={styles.ovalBadge}>
-            <Text style={styles.ovalTextLine1}>Small</Text>
-            <Text style={styles.ovalTextLine2}>steps</Text>
-            <Text style={styles.ovalTextLine3}>big progress.</Text>
-            <Feather name="edit-2" size={12} color="#2D6A00" style={styles.pencilIcon} />
           </View>
         </View>
 
@@ -139,7 +131,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
 
           <TouchableOpacity
             style={styles.tryAiBtn}
-            onPress={() => setCurrentView('ai')}
+            onPress={() => handleNavigate('Ai')}
+            activeOpacity={0.8}
           >
             <Text style={styles.tryAiText}>Try with AI</Text>
             <Feather name="arrow-right" size={13} color="#7C3AED" style={{ marginLeft: 3 }} />
@@ -157,7 +150,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           {/* Item 1: Task */}
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => setCurrentView('addTask')}
+            onPress={() => handleNavigate('AddTask')}
+            activeOpacity={0.7}
           >
             <View style={[styles.gridIconBox, { backgroundColor: '#E2F7C5' }]}>
               <Feather name="check-square" size={20} color="#2D6A00" />
@@ -174,7 +168,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           {/* Item 2: Event */}
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => setCurrentView('addEvent')}
+            onPress={() => handleNavigate('AddEvent')}
+            activeOpacity={0.7}
           >
             <View style={[styles.gridIconBox, { backgroundColor: '#DBEAFE' }]}>
               <Feather name="calendar" size={20} color="#2563EB" />
@@ -191,7 +186,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           {/* Item 3: Goal */}
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => setCurrentView('addGoal')}
+            onPress={() => handleNavigate('AddGoal')}
+            activeOpacity={0.7}
           >
             <View style={[styles.gridIconBox, { backgroundColor: '#F3E8FF' }]}>
               <Ionicons name="disc-outline" size={20} color="#7C3AED" />
@@ -208,7 +204,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           {/* Item 4: Habit */}
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => setCurrentView('addHabit')}
+            onPress={() => handleNavigate('AddHabit')}
+            activeOpacity={0.7}
           >
             <View style={[styles.gridIconBox, { backgroundColor: '#FFEDD5' }]}>
               <Ionicons name="stats-chart-outline" size={20} color="#C2410C" />
@@ -225,7 +222,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           {/* Item 5: Expense */}
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => setCurrentView('addExpense')}
+            onPress={() => handleNavigate('AddExpense')}
+            activeOpacity={0.7}
           >
             <View style={[styles.gridIconBox, { backgroundColor: '#FFE4E6' }]}>
               <Ionicons name="card-outline" size={20} color="#E11D48" />
@@ -242,7 +240,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           {/* Item 6: Trip */}
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => setCurrentView('addTrip')}
+            onPress={() => handleNavigate('AddTrip')}
+            activeOpacity={0.7}
           >
             <View style={[styles.gridIconBox, { backgroundColor: '#CCFBF1' }]}>
               <Ionicons name="earth-outline" size={20} color="#0D9488" />
@@ -259,7 +258,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           {/* Item 7: Learning */}
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => setCurrentView('addLearning')}
+            onPress={() => handleNavigate('AddLearning')}
+            activeOpacity={0.7}
           >
             <View style={[styles.gridIconBox, { backgroundColor: '#E0E7FF' }]}>
               <Feather name="book-open" size={20} color="#4F46E5" />
@@ -276,7 +276,8 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           {/* Item 8: Health */}
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => setCurrentView('addHealth')}
+            onPress={() => handleNavigate('AddHealth')}
+            activeOpacity={0.7}
           >
             <View style={[styles.gridIconBox, { backgroundColor: '#FCE7F3' }]}>
               <Ionicons name="heart-outline" size={20} color="#DB2777" />
@@ -297,25 +298,39 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
           <Text style={styles.sectionSub}>Add in a few taps</Text>
         </View>
 
-        <View style={styles.quickAddChipsRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.quickAddChipsScroll}
+          contentContainerStyle={styles.quickAddChipsRow}
+        >
           <TouchableOpacity
             style={[styles.quickChip, { backgroundColor: '#F0FDF4', borderColor: '#DCFCE7' }]}
-            onPress={() => setCurrentView('addTask')}
+            onPress={() => handleNavigate('AddTask')}
+            activeOpacity={0.7}
           >
             <Ionicons name="flash-outline" size={14} color="#16A34A" style={{ marginRight: 6 }} />
             <Text style={[styles.quickChipText, { color: '#16A34A' }]}>Quick Task</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.quickChip, { backgroundColor: '#EFF6FF', borderColor: '#DBEAFE' }]}>
+          <TouchableOpacity
+            style={[styles.quickChip, { backgroundColor: '#EFF6FF', borderColor: '#DBEAFE' }]}
+            onPress={() => handleNavigate('AddEvent')}
+            activeOpacity={0.7}
+          >
             <Feather name="calendar" size={14} color="#2563EB" style={{ marginRight: 6 }} />
             <Text style={[styles.quickChipText, { color: '#2563EB' }]}>Quick Event</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.quickChip, { backgroundColor: '#FEF2F2', borderColor: '#FEE2E2' }]}>
+          <TouchableOpacity
+            style={[styles.quickChip, { backgroundColor: '#FEF2F2', borderColor: '#FEE2E2' }]}
+            onPress={() => handleNavigate('AddExpense')}
+            activeOpacity={0.7}
+          >
             <Ionicons name="card-outline" size={14} color="#DC2626" style={{ marginRight: 6 }} />
             <Text style={[styles.quickChipText, { color: '#DC2626' }]}>Log Expense</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* Voice Note Banner */}
         <View style={styles.bannerCard}>
@@ -329,14 +344,22 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
             </View>
           </View>
 
-          <TouchableOpacity style={styles.voiceBtn}>
+          <TouchableOpacity
+            style={styles.voiceBtn}
+            onPress={() => handleNavigate('VoiceRecording')}
+            activeOpacity={0.7}
+          >
             <Ionicons name="mic-outline" size={15} color="#7C3AED" style={{ marginRight: 4 }} />
             <Text style={styles.voiceBtnText}>Tap to record</Text>
           </TouchableOpacity>
         </View>
 
         {/* Scan & Add Banner */}
-        <View style={[styles.bannerCard, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
+        <TouchableOpacity
+          style={[styles.bannerCard, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}
+          onPress={() => handleNavigate('ScanAndAdd')}
+          activeOpacity={0.7}
+        >
           <View style={styles.bannerLeft}>
             <View style={[styles.bannerIconBox, { backgroundColor: '#F1F5F9' }]}>
               <Feather name="maximize" size={16} color="#475569" />
@@ -347,13 +370,11 @@ export const AddOptainsScreen: React.FC<AddHubScreenProps> = ({ onBack, onSelect
             </View>
           </View>
 
-          <TouchableOpacity style={styles.scanBtn}>
-            <MaterialCommunityIcons name="view-grid-plus-outline" size={15} color="#475569" style={{ marginRight: 4 }} />
-            <Text style={styles.scanBtnText}>Scan Now</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 30 }} />
+          <View style={styles.scanBtn}>
+            <Feather name="camera" size={15} color="#475569" style={{ marginRight: 4 }} />
+            <Text style={styles.scanBtnText}>Scan</Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -371,7 +392,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 16,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
 
   /* Header */
@@ -381,30 +402,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  logoRow: {
+  headerLeftWrap: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: 0.5,
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+    marginLeft: -4,
   },
-  logoDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#66C400',
-    marginLeft: 2,
-    marginTop: 6,
+  logoImage: {
+    width: 77,
+    height: 32,
   },
   logoSubtitle: {
-    fontSize: 9,
+    fontSize: 7.5,
     fontWeight: '700',
     color: '#94A3B8',
-    letterSpacing: 1.2,
-    marginTop: -2,
+    letterSpacing: 1.3,
+    marginTop: 1,
+    marginLeft: 5,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#EF4444',
   },
   avatarCircle: {
     width: 36,
@@ -413,6 +457,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2F7C5',
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 10,
   },
   avatarText: {
     fontSize: 15,
@@ -422,9 +467,6 @@ const styles = StyleSheet.create({
 
   /* Title Section */
   titleSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
     marginBottom: 16,
   },
   titleLeft: {
@@ -441,54 +483,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  /* Oval Handwritten Badge */
-  ovalBadge: {
-    backgroundColor: '#E2F7C5',
-    borderRadius: 40,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    transform: [{ rotate: '-4deg' }],
-  },
-  ovalTextLine1: {
-    fontSize: 12,
-    fontFamily: Platform.OS === 'web' ? 'Caveat, cursive' : 'Caveat_700Bold',
-    fontWeight: '700',
-    color: '#2D6A00',
-    lineHeight: 14,
-  },
-  ovalTextLine2: {
-    fontSize: 13,
-    fontFamily: Platform.OS === 'web' ? 'Caveat, cursive' : 'Caveat_700Bold',
-    fontWeight: '700',
-    color: '#2D6A00',
-    lineHeight: 15,
-  },
-  ovalTextLine3: {
-    fontSize: 13,
-    fontFamily: Platform.OS === 'web' ? 'Caveat, cursive' : 'Caveat_700Bold',
-    fontWeight: '700',
-    color: '#2D6A00',
-    lineHeight: 15,
-  },
-  pencilIcon: {
-    position: 'absolute',
-    bottom: 6,
-    right: 8,
-  },
-
   /* AI Card */
   aiCard: {
-    backgroundColor: '#F3F0FF',
-    borderRadius: 18,
-    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#F5EFFF',
+    borderRadius: 16,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#EDE9FE',
     marginBottom: 20,
   },
   aiLeft: {
@@ -521,23 +525,20 @@ const styles = StyleSheet.create({
   },
   tryAiBtn: {
     backgroundColor: '#EDE9FE',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   tryAiText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#7C3AED',
   },
 
   /* Section Header */
   sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
     marginBottom: 12,
   },
   sectionTitle: {
@@ -578,31 +579,33 @@ const styles = StyleSheet.create({
   },
   gridTextWrap: {
     flex: 1,
-    marginRight: 2,
+    marginRight: 4,
   },
   gridCardTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
+    marginBottom: 2,
   },
   gridCardSub: {
-    fontSize: 10.5,
-    color: '#94A3B8',
-    marginTop: 1,
-    lineHeight: 14,
+    fontSize: 10,
+    color: '#64748B',
+    lineHeight: 13,
   },
 
-  /* Quick Add Chips */
+  /* Quick Add */
+  quickAddChipsScroll: {
+    marginBottom: 20,
+  },
   quickAddChipsRow: {
     flexDirection: 'row',
-    marginBottom: 20,
   },
   quickChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
     marginRight: 8,
   },
@@ -613,14 +616,14 @@ const styles = StyleSheet.create({
 
   /* Banner Cards */
   bannerCard: {
-    backgroundColor: '#F5F3FF',
-    borderRadius: 18,
-    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: '#E2E8F0',
     marginBottom: 12,
   },
   bannerLeft: {
@@ -630,9 +633,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   bannerIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -641,38 +644,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bannerTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
   },
   bannerSub: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 1,
   },
   voiceBtn: {
-    backgroundColor: '#EDE9FE',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: '#F5EFFF',
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
   },
   voiceBtnText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#7C3AED',
   },
   scanBtn: {
     backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   scanBtnText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#475569',
   },

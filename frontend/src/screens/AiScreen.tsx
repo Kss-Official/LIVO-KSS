@@ -11,23 +11,38 @@ import {
   Platform,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { AiChatMessage } from '../types';
+import { useNavigation } from '@react-navigation/native';
+import { useAi } from '../hooks/useAi';
 
 interface AiScreenProps {
   onBack?: () => void;
 }
 
 export const AiScreen: React.FC<AiScreenProps> = ({ onBack }) => {
-  const [messages, setMessages] = useState<AiChatMessage[]>([
+  const navigation = useNavigation<any>();
+  const { messages: historyMessages, sendMessage: sendAiMessage } = useAi();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs');
+    }
+  };
+  
+  // Combine local mock messages and hook history
+  const defaultMessages = [
     {
       id: 'm1',
-      sender: 'LIVO_AI',
+      sender: 'LIVO_AI' as const,
       text: "Hello Ritish! I've analyzed your upcoming schedule and priorities for today. You have 4 tasks, 3 events, and 1 schedule overlap at 10:00 AM. What would you like help with?",
       timestamp: '10:00 AM',
     },
     {
       id: 'm2',
-      sender: 'LIVO_AI',
+      sender: 'LIVO_AI' as const,
       text: "Recommendation: Moving 'Finish LIVO AI Engine setup' to 2:00 PM will keep your afternoon free for deep work.",
       timestamp: '10:01 AM',
       suggestedAction: {
@@ -36,30 +51,18 @@ export const AiScreen: React.FC<AiScreenProps> = ({ onBack }) => {
         payload: { taskId: '1', newTime: '14:00' },
       },
     },
-  ]);
+  ];
+
+  const messages = [...defaultMessages, ...historyMessages];
 
   const [inputText, setInputText] = useState('');
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || inputText;
     if (!query.trim()) return;
 
-    const userMsg: AiChatMessage = {
-      id: Date.now().toString(),
-      sender: 'USER',
-      text: query,
-      timestamp: 'Just now',
-    };
-
-    const aiReply: AiChatMessage = {
-      id: (Date.now() + 1).toString(),
-      sender: 'LIVO_AI',
-      text: `Analyzing context for "${query}"... I recommend grouping your admin tasks together at 4:30 PM today.`,
-      timestamp: 'Just now',
-    };
-
-    setMessages((prev) => [...prev, userMsg, aiReply]);
     setInputText('');
+    await sendAiMessage(query);
   };
 
   return (
@@ -69,25 +72,34 @@ export const AiScreen: React.FC<AiScreenProps> = ({ onBack }) => {
       <View style={styles.container}>
         {/* 1. Top Header Row */}
         <View style={styles.headerRow}>
-          <View>
-            <View style={styles.logoRow}>
-              <Text style={styles.logoText}>LIVO</Text>
-              <View style={styles.logoDot} />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={handleBack}
+              style={{ marginRight: 10, padding: 4 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather name="arrow-left" size={22} color="#0F172A" />
+            </TouchableOpacity>
+            <View>
+              <View style={styles.logoRow}>
+                <Text style={styles.logoText}>LIVO</Text>
+                <View style={styles.logoDot} />
+              </View>
+              <Text style={styles.logoSubtitle}>A BETTER YOU</Text>
             </View>
-            <Text style={styles.logoSubtitle}>A BETTER YOU</Text>
           </View>
 
           <View style={styles.headerRightActions}>
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Search')}>
               <Feather name="search" size={20} color="#0F172A" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Notifications')}>
               <Feather name="bell" size={20} color="#0F172A" />
               <View style={styles.notificationBadge} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.avatarCircle}>
+            <TouchableOpacity style={styles.avatarCircle} onPress={() => navigation.navigate('Profile')}>
               <Text style={styles.avatarText}>R</Text>
             </TouchableOpacity>
           </View>

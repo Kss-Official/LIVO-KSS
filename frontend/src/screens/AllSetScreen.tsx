@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,27 +9,62 @@ import {
   ScrollView,
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 interface AllSetScreenProps {
   onGoHome?: () => void;
+  onCreateGoal?: () => void;
+  onAddTask?: () => void;
+  onPlanSchedule?: () => void;
+  onBuildHabit?: () => void;
 }
 
-export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetScreenProps) => {
+export const AllSetScreen: React.FC<AllSetScreenProps> = ({
+  onGoHome,
+  onCreateGoal,
+  onAddTask,
+  onPlanSchedule,
+  onBuildHabit,
+}: AllSetScreenProps) => {
+  const navigation = useNavigation<any>();
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  };
+
+  const handleCreateGoal = () => {
+    if (onCreateGoal) onCreateGoal();
+    else navigation.navigate('OnboardingFirstGoal');
+  };
+
+  const handleAddTask = () => {
+    if (onAddTask) onAddTask();
+    else navigation.navigate('OnboardingFirstTask');
+  };
+
+  const handlePlanSchedule = () => {
+    if (onPlanSchedule) onPlanSchedule();
+    else navigation.navigate('OnboardingFirstEvent');
+  };
+
+  const handleBuildHabit = () => {
+    if (onBuildHabit) onBuildHabit();
+    else navigation.navigate('OnboardingFirstHabit');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Background — Softly blurred & feathered green glows on pure white base */}
-      {/* Top-Right Feathered Glow */}
       <View style={[styles.bgGlow, { top: -160, right: -100, width: 440, height: 440, borderRadius: 220, backgroundColor: '#D6F5A0', opacity: 0.05 }]} />
       <View style={[styles.bgGlow, { top: -130, right: -70, width: 380, height: 380, borderRadius: 190, backgroundColor: '#D6F5A0', opacity: 0.08 }]} />
       <View style={[styles.bgGlow, { top: -95, right: -35, width: 300, height: 300, borderRadius: 150, backgroundColor: '#D6F5A0', opacity: 0.09 }]} />
-
-      {/* Bottom-Left Feathered Glow */}
       <View style={[styles.bgGlow, { bottom: -130, left: -90, width: 340, height: 340, borderRadius: 170, backgroundColor: '#D6F5A0', opacity: 0.04 }]} />
       <View style={[styles.bgGlow, { bottom: -100, left: -60, width: 280, height: 280, borderRadius: 140, backgroundColor: '#D6F5A0', opacity: 0.07 }]} />
       <View style={[styles.bgGlow, { bottom: -70, left: -30, width: 210, height: 210, borderRadius: 105, backgroundColor: '#D6F5A0', opacity: 0.07 }]} />
-      {/* Delicate Top-Right Arc Line */}
       <View style={styles.bgArcCircle} />
 
       <ScrollView
@@ -38,7 +73,6 @@ export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetSc
       >
         {/* Top Header / Graphic Area */}
         <View style={styles.illustrationArea}>
-          {/* Top-left casual badge */}
           <View style={styles.badgeWrap}>
             <Text style={styles.badgeTextLine1}>You're</Text>
             <View style={styles.badgeUnderlineWrap}>
@@ -48,25 +82,15 @@ export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetSc
             </View>
           </View>
 
-          {/* Central circle graphic with tick marks & white check card */}
           <View style={styles.circleOuter}>
-            {/* Exact tick marks & dots matching reference image */}
-            {/* Top-left angled pill */}
             <View style={[styles.tickPill, { width: 14, height: 6, top: 12, left: 16, transform: [{ rotate: '-35deg' }] }]} />
-            {/* Top small dot */}
             <View style={[styles.tickPill, { width: 7, height: 7, borderRadius: 3.5, top: 6, left: 68 }]} />
-            {/* Right horizontal pill */}
             <View style={[styles.tickPill, { width: 12, height: 5, top: 68, right: -4 }]} />
-            {/* Bottom-right diamond (tilted square) on arc line */}
             <View style={[styles.tickPill, { width: 12, height: 12, borderRadius: 2.5, bottom: -4, right: 12, transform: [{ rotate: '45deg' }] }]} />
-            {/* Bottom-right vertical pill */}
             <View style={[styles.tickPill, { width: 6, height: 14, bottom: 12, right: 38 }]} />
-            {/* Bottom-left vertical pill */}
             <View style={[styles.tickPill, { width: 6, height: 14, bottom: 12, left: 38 }]} />
-            {/* Left horizontal pill */}
             <View style={[styles.tickPill, { width: 12, height: 5, top: 68, left: -4 }]} />
 
-            {/* Inner White Check Card */}
             <View style={styles.checkCard}>
               <Feather name="check" size={32} color="#66C400" />
             </View>
@@ -81,7 +105,6 @@ export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetSc
 
         {/* Journey Card */}
         <View style={styles.journeyCard}>
-          {/* Card Header */}
           <View style={styles.cardHeaderRow}>
             <MaterialCommunityIcons name="star-four-points" size={20} color="#0F172A" style={styles.sparkleIcon} />
             <View>
@@ -92,8 +115,12 @@ export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetSc
 
           {/* Action List */}
           <View style={styles.actionList}>
-            {/* Item 1 */}
-            <View style={styles.actionRow}>
+            {/* Item 1: Create your first goal */}
+            <TouchableOpacity
+              style={styles.actionRow}
+              activeOpacity={0.7}
+              onPress={handleCreateGoal}
+            >
               <View style={styles.iconPill}>
                 <Ionicons name="disc-outline" size={20} color="#2D6A00" />
               </View>
@@ -101,10 +128,14 @@ export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetSc
                 <Text style={styles.actionTitle}>Create your first goal</Text>
                 <Text style={styles.actionDesc}>Turn your dreams into actionable steps</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            {/* Item 2 */}
-            <View style={styles.actionRow}>
+            {/* Item 2: Add a task */}
+            <TouchableOpacity
+              style={styles.actionRow}
+              activeOpacity={0.7}
+              onPress={handleAddTask}
+            >
               <View style={styles.iconPill}>
                 <Feather name="check-square" size={19} color="#2D6A00" />
               </View>
@@ -112,10 +143,14 @@ export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetSc
                 <Text style={styles.actionTitle}>Add a task</Text>
                 <Text style={styles.actionDesc}>Get things done, one step at a time</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            {/* Item 3 */}
-            <View style={styles.actionRow}>
+            {/* Item 3: Plan your schedule */}
+            <TouchableOpacity
+              style={styles.actionRow}
+              activeOpacity={0.7}
+              onPress={handlePlanSchedule}
+            >
               <View style={styles.iconPill}>
                 <Feather name="calendar" size={19} color="#2D6A00" />
               </View>
@@ -123,10 +158,14 @@ export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetSc
                 <Text style={styles.actionTitle}>Plan your schedule</Text>
                 <Text style={styles.actionDesc}>Stay on top of your time</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            {/* Item 4 */}
-            <View style={styles.actionRow}>
+            {/* Item 4: Build a habit */}
+            <TouchableOpacity
+              style={styles.actionRow}
+              activeOpacity={0.7}
+              onPress={handleBuildHabit}
+            >
               <View style={styles.iconPill}>
                 <Ionicons name="heart-outline" size={19} color="#2D6A00" />
               </View>
@@ -134,7 +173,7 @@ export const AllSetScreen: React.FC<AllSetScreenProps> = ({ onGoHome }: AllSetSc
                 <Text style={styles.actionTitle}>Build a habit</Text>
                 <Text style={styles.actionDesc}>Small steps make a big difference</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 

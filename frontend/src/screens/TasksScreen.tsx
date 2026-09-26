@@ -11,14 +11,16 @@ import {
   Modal,
   TextInput,
   TouchableWithoutFeedback,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../theme/colors';
-import { AddTaskScreen } from './AddTaskScreen';
-import { AddOptainsScreen } from './AddOptainsScreen';
+import { useTasks } from '../hooks/useTasks';
 
-export type TaskPriority = 'High' | 'Medium' | 'Low';
-export type TaskCategory = 'Work' | 'Learning' | 'Personal' | 'Health' | 'Finance';
+export type TaskPriority = 'High' | 'Medium' | 'Low' | 'Urgent';
+export type TaskCategory = 'Work' | 'Learning' | 'Personal' | 'Health' | 'Finance' | string;
 
 export interface TaskItem {
   id: string;
@@ -38,66 +40,50 @@ interface TasksScreenProps {
 }
 
 export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddModal = false }) => {
-  const [showAddTaskScreen, setShowAddTaskScreen] = useState(false);
-  const [showAddOptainsScreen, setShowAddOptainsScreen] = useState(autoOpenAddModal);
-  // Task Data State initialized with exact items from the image mockup
-  const [tasks, setTasks] = useState<TaskItem[]>([
-    {
-      id: '1',
-      title: 'Finish UI Design',
-      dueDate: 'Today, 2:00 PM',
+  const { tasks: realTasks, toggleTask, addTask, updateTask, deleteTask, isLoading } = useTasks();
+  
+  const formatISO = (isoStr?: string, mode: 'date'|'time' = 'date') => {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return isoStr; // not a valid date, just return as-is
+      if (mode === 'time') {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      return isoStr;
+    }
+  };
+
+  // Transform realTasks to match the UI's TaskItem expected interface structure
+  const tasks = realTasks.map(t => {
+    const formattedDate = formatISO(t.date || t.dueDate, 'date');
+    const formattedTime = formatISO(t.time, 'time');
+    return {
+      id: t.id,
+      title: t.title,
+      dueDate: formattedDate ? (formattedTime ? `${formattedDate}, ${formattedTime}` : formattedDate) : 'Today',
+      time: formattedTime,
       isCalendar: false,
-      category: 'Work',
-      priority: 'High',
-      completed: false,
-    },
-    {
-      id: '2',
-      title: 'Prepare Client Presentation',
-      dueDate: 'Tomorrow, 10:00 AM',
-      isCalendar: true,
-      category: 'Work',
-      priority: 'High',
-      completed: false,
-    },
-    {
-      id: '3',
-      title: 'Review Project Updates',
-      dueDate: 'Today, 5:00 PM',
-      isCalendar: false,
-      category: 'Work',
-      priority: 'Medium',
-      completed: false,
-    },
-    {
-      id: '4',
-      title: 'Read React Chapter',
-      dueDate: 'Tomorrow',
-      isCalendar: true,
-      category: 'Learning',
-      priority: 'Medium',
-      completed: false,
-    },
-    {
-      id: '5',
-      title: 'Plan Weekend Trip',
-      dueDate: 'Sun, 8 Sep',
-      isCalendar: true,
-      category: 'Personal',
-      priority: 'Low',
-      completed: false,
-    },
-    {
-      id: '6',
-      title: 'Team Sync',
-      dueDate: 'Today, 11:30 AM',
-      isCalendar: false,
-      category: 'Work',
-      priority: 'Medium',
-      completed: true,
-      integration: 'Google Meet',
-    },
-  ]);
+      category: t.category || 'Work',
+      priority: t.priority as TaskPriority,
+      completed: t.completed,
+      integration: '',
+    };
+  });
+
+  const navigation = useNavigation<any>();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs');
+    }
+  };
 
   // Tab state: All | Today | Upcoming | Completed
   const [activeTab, setActiveTab] = useState<'All' | 'Today' | 'Upcoming' | 'Completed'>('All');
@@ -129,72 +115,105 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
   // AI Suggestion Banner visibility
   const [showAiBanner, setShowAiBanner] = useState(true);
 
-  if (showAddOptainsScreen) {
-    return <AddOptainsScreen onBack={() => setShowAddOptainsScreen(false)} />;
-  }
 
-  if (showAddTaskScreen) {
-    return (
-      <AddTaskScreen
-        onBack={() => setShowAddTaskScreen(false)}
-        onCreateTask={(createdTask: any) => {
-          if (createdTask?.title) {
-            const newTaskItem: TaskItem = {
-              id: Date.now().toString(),
-              title: createdTask.title,
-              dueDate: createdTask.date ? `${createdTask.date}, ${createdTask.time || ''}` : 'Today',
-              isCalendar: false,
-              category: (createdTask.category as TaskCategory) || 'Work',
-              priority: (createdTask.priority as TaskPriority) || 'High',
-              completed: false,
-            };
-            setTasks((prev) => [newTaskItem, ...prev]);
-          }
-          setShowAddTaskScreen(false);
-        }}
-      />
-    );
-  }
+  // Action Modal State
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [selectedTaskForAction, setSelectedTaskForAction] = useState<TaskItem | null>(null);
+  const [showChangePriorityModal, setShowChangePriorityModal] = useState(false);
+  const [showChangeDateModal, setShowChangeDateModal] = useState(false);
 
-  // Add Task Modal State
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskCategory, setNewTaskCategory] = useState<TaskCategory>('Work');
-  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('High');
-  const [newTaskDueDate, setNewTaskDueDate] = useState('Today, 3:00 PM');
-
-  // Toggle Task Completion
-  const toggleTaskCompleted = (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
-    );
+  // Task Action Handlers
+  const handleEditTask = () => {
+    if (!selectedTaskForAction) return;
+    const raw = realTasks.find((t) => t.id === selectedTaskForAction.id);
+    setIsActionModalOpen(false);
+    navigation.navigate('AddTask', { existingTask: raw || selectedTaskForAction });
   };
 
-  // Toggle Section Collapse
-  const toggleSection = (sectionKey: string) => {
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [sectionKey]: !prev[sectionKey],
-    }));
+  const handleToggleComplete = async () => {
+    if (!selectedTaskForAction) return;
+    const taskId = selectedTaskForAction.id;
+    setIsActionModalOpen(false);
+    await toggleTask(taskId);
   };
 
-  // Add New Task Handler
-  const handleAddNewTask = () => {
-    if (!newTaskTitle.trim()) return;
+  const handleChangeDate = async (type: 'today' | 'tomorrow' | 'nextWeek' | 'custom') => {
+    if (!selectedTaskForAction) return;
+    const raw = realTasks.find((t) => t.id === selectedTaskForAction.id);
+    if (!raw) return;
 
-    const newTask: TaskItem = {
-      id: Date.now().toString(),
-      title: newTaskTitle.trim(),
-      dueDate: newTaskDueDate || 'Today',
-      isCalendar: newTaskDueDate.toLowerCase().includes('tomorrow') || newTaskDueDate.toLowerCase().includes('sun'),
-      category: newTaskCategory,
-      priority: newTaskPriority,
-      completed: false,
-    };
+    if (type === 'custom') {
+      setShowChangeDateModal(false);
+      navigation.navigate('AddTask', { existingTask: raw });
+      return;
+    }
 
-    setTasks((prev) => [newTask, ...prev]);
-    setNewTaskTitle('');
-    setIsAddModalOpen(false);
+    const d = new Date();
+    if (type === 'tomorrow') {
+      d.setDate(d.getDate() + 1);
+    } else if (type === 'nextWeek') {
+      d.setDate(d.getDate() + 7);
+    }
+    const isoDate = d.toISOString();
+    setShowChangeDateModal(false);
+    await updateTask({
+      ...raw,
+      date: isoDate,
+      dueDate: isoDate,
+    });
+  };
+
+  const handleChangePriority = async (newPriority: 'High' | 'Medium' | 'Low') => {
+    if (!selectedTaskForAction) return;
+    const raw = realTasks.find((t) => t.id === selectedTaskForAction.id);
+    if (!raw) return;
+    setShowChangePriorityModal(false);
+    await updateTask({
+      ...raw,
+      priority: newPriority,
+    });
+  };
+
+  const handleDuplicateTask = async () => {
+    if (!selectedTaskForAction) return;
+    const raw = realTasks.find((t) => t.id === selectedTaskForAction.id);
+    setIsActionModalOpen(false);
+    if (raw) {
+      await addTask({
+        title: `${raw.title} (Copy)`,
+        description: raw.description || '',
+        date: raw.date || new Date().toISOString(),
+        time: raw.time,
+        priority: raw.priority || 'Medium',
+        category: raw.category || 'Work',
+        duration: raw.duration,
+        location: raw.location,
+        subtasks: raw.subtasks || [],
+        attachments: raw.attachments || [],
+      });
+    }
+  };
+
+  const handleDeleteTask = () => {
+    if (!selectedTaskForAction) return;
+    const taskId = selectedTaskForAction.id;
+    const title = selectedTaskForAction.title;
+    setIsActionModalOpen(false);
+
+    Alert.alert(
+      'Delete Task',
+      `Are you sure you want to delete "${title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteTask(taskId);
+          },
+        },
+      ]
+    );
   };
 
   // Filter tasks based on tabs and dropdown filters
@@ -214,6 +233,16 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
       return true;
     });
   }, [tasks, activeTab, selectedPriorityFilter, selectedCategoryFilter]);
+
+  // Toggle Section Collapse
+  const toggleSection = (sectionKey: string) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey],
+    }));
+  };
+
+
 
   // Group tasks by section
   const highPriorityTasks = filteredTasks.filter((t) => !t.completed && t.priority === 'High');
@@ -273,34 +302,72 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
     );
   };
 
+  const isTaskOverdue = (t: TaskItem): boolean => {
+    if (t.completed) return false;
+    const lowerDue = (t.dueDate || '').toLowerCase().trim();
+    if (lowerDue.includes('yesterday') || lowerDue.includes('overdue') || lowerDue.includes('ago')) return true;
+    try {
+      const parsed = new Date(t.dueDate);
+      if (!isNaN(parsed.getTime())) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return parsed.getTime() < today.getTime();
+      }
+    } catch {}
+    return false;
+  };
+
   // Render Single Task Item Row
   const renderTaskItem = (task: TaskItem) => {
+    const overdue = isTaskOverdue(task);
     return (
-      <View key={task.id} style={styles.taskCard}>
+      <View key={task.id} style={[styles.taskCard, overdue && { borderColor: '#FCA5A5', borderWidth: 1 }]}>
         {/* Left Checkbox */}
         <TouchableOpacity
           style={[styles.checkbox, task.completed && styles.checkboxChecked]}
-          onPress={() => toggleTaskCompleted(task.id)}
+          onPress={() => toggleTask(task.id)}
           activeOpacity={0.7}
         >
           {task.completed && <Feather name="check" size={14} color="#FFFFFF" />}
         </TouchableOpacity>
 
         {/* Middle Content */}
-        <View style={styles.taskContent}>
-          <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
-            {task.title}
-          </Text>
+        <TouchableOpacity
+          style={styles.taskContent}
+          onPress={() => {
+            if (overdue) {
+              navigation.navigate('TaskOverdue', {
+                task,
+                taskId: task.id,
+                taskTitle: task.title,
+                originalDueDate: task.dueDate,
+              });
+            } else {
+              navigation.navigate('AddTask', { existingTask: task });
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted, overdue && { color: '#DC2626' }]}>
+              {task.title}
+            </Text>
+            {overdue && (
+              <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 6 }}>
+                <Text style={{ color: '#DC2626', fontSize: 10, fontWeight: '700' }}>OVERDUE</Text>
+              </View>
+            )}
+          </View>
 
           <View style={styles.taskSubRow}>
             <View style={styles.dateTimeWrap}>
               <Feather
                 name={task.isCalendar ? 'calendar' : 'clock'}
                 size={12}
-                color="#94A3B8"
+                color={overdue ? '#DC2626' : '#94A3B8'}
                 style={{ marginRight: 4 }}
               />
-              <Text style={styles.dateTimeText}>{task.dueDate}</Text>
+              <Text style={[styles.dateTimeText, overdue && { color: '#DC2626', fontWeight: '600' }]}>{task.dueDate}</Text>
             </View>
 
             {renderCategoryBadge(task.category)}
@@ -312,13 +379,20 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
               </View>
             )}
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Right Actions */}
         <View style={styles.taskRightActions}>
           {!task.completed && renderPriorityBadge(task.priority)}
 
-          <TouchableOpacity style={styles.moreBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity 
+            style={styles.moreBtn} 
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            onPress={() => {
+              setSelectedTaskForAction(task);
+              setIsActionModalOpen(true);
+            }}
+          >
             <Feather name="more-vertical" size={16} color="#94A3B8" />
           </TouchableOpacity>
         </View>
@@ -338,15 +412,13 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
         {/* 1. Top Header Row */}
         <View style={styles.headerRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {onBack && (
-              <TouchableOpacity
-                onPress={onBack}
-                style={{ marginRight: 10, padding: 4 }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Feather name="arrow-left" size={22} color="#0F172A" />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              onPress={handleBack}
+              style={{ marginRight: 10, padding: 4 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather name="arrow-left" size={22} color="#0F172A" />
+            </TouchableOpacity>
             <View>
               <View style={styles.logoRow}>
                 <Text style={styles.logoText}>LIVO</Text>
@@ -357,16 +429,16 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
           </View>
 
           <View style={styles.headerRightActions}>
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Search')}>
               <Feather name="search" size={20} color="#0F172A" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Notifications')}>
               <Feather name="bell" size={20} color="#0F172A" />
               <View style={styles.notificationBadge} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.avatarCircle}>
+            <TouchableOpacity style={styles.avatarCircle} onPress={() => navigation.navigate('Profile')}>
               <Text style={styles.avatarText}>R</Text>
             </TouchableOpacity>
           </View>
@@ -408,7 +480,7 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
 
           <TouchableOpacity
             style={styles.addTaskBtn}
-            onPress={() => setShowAddOptainsScreen(true)}
+            onPress={() => navigation.navigate('AddTask')}
             activeOpacity={0.85}
           >
             <Feather name="plus" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
@@ -666,7 +738,11 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
                 </Text>
               </View>
 
-              <TouchableOpacity style={styles.askLivoBtn} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.askLivoBtn}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('ChatWithLivo')}
+              >
                 <Text style={styles.askLivoText}>Ask LIVO</Text>
               </TouchableOpacity>
             </View>
@@ -674,92 +750,225 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ onBack, autoOpenAddMod
         )}
       </ScrollView>
 
-      {/* 8. Modal: Add Task */}
+
+
+      {/* Task Options Bottom Sheet Modal */}
       <Modal
-        visible={isAddModalOpen}
+        visible={isActionModalOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setIsAddModalOpen(false)}
+        onRequestClose={() => setIsActionModalOpen(false)}
       >
-        <TouchableWithoutFeedback onPress={() => setIsAddModalOpen(false)}>
+        <TouchableWithoutFeedback onPress={() => setIsActionModalOpen(false)}>
           <View style={styles.modalOverlay} />
         </TouchableWithoutFeedback>
+        <View style={styles.taskOptionsModalContent}>
+          {/* Header */}
+          <View style={styles.taskOptionsHeader}>
+            <View style={styles.taskOptionsHeaderTop}>
+              <Text style={styles.taskOptionsTitle}>Task Options</Text>
+              <TouchableOpacity
+                onPress={() => setIsActionModalOpen(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Feather name="x" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            {selectedTaskForAction && (
+              <View style={styles.taskOptionsSubtitleRow}>
+                <Text style={styles.taskOptionsTaskTitle} numberOfLines={1}>
+                  {selectedTaskForAction.title}
+                </Text>
+                <View style={[styles.taskOptionsBadge, { backgroundColor: selectedTaskForAction.completed ? '#DCFCE7' : '#F1F5F9' }]}>
+                  <Text style={[styles.taskOptionsBadgeText, { color: selectedTaskForAction.completed ? '#16A34A' : '#64748B' }]}>
+                    {selectedTaskForAction.completed ? 'Completed' : `${selectedTaskForAction.priority} Priority`}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
 
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add New Task</Text>
-            <TouchableOpacity onPress={() => setIsAddModalOpen(false)}>
-              <Feather name="x" size={20} color="#64748B" />
+          <View style={styles.taskOptionsDivider} />
+
+          {/* Options List */}
+          <View style={styles.taskOptionsList}>
+            {/* 1. Edit Task */}
+            <TouchableOpacity style={styles.taskOptionRow} onPress={handleEditTask} activeOpacity={0.7}>
+              <View style={[styles.taskOptionIconBox, { backgroundColor: '#EBF3FF' }]}>
+                <Feather name="edit-2" size={16} color="#2563EB" />
+              </View>
+              <View style={styles.taskOptionTextCol}>
+                <Text style={styles.taskOptionMainText}>Edit Task</Text>
+                <Text style={styles.taskOptionSubText}>Update details, title, or category</Text>
+              </View>
+              <Feather name="chevron-right" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+
+            {/* 2. Mark as Completed / Incomplete */}
+            <TouchableOpacity style={styles.taskOptionRow} onPress={handleToggleComplete} activeOpacity={0.7}>
+              <View style={[styles.taskOptionIconBox, { backgroundColor: selectedTaskForAction?.completed ? '#F1F5F9' : '#DCFCE7' }]}>
+                <Feather
+                  name={selectedTaskForAction?.completed ? 'rotate-ccw' : 'check-circle'}
+                  size={16}
+                  color={selectedTaskForAction?.completed ? '#64748B' : '#16A34A'}
+                />
+              </View>
+              <View style={styles.taskOptionTextCol}>
+                <Text style={styles.taskOptionMainText}>
+                  {selectedTaskForAction?.completed ? 'Mark as Incomplete' : 'Mark as Completed'}
+                </Text>
+                <Text style={styles.taskOptionSubText}>
+                  {selectedTaskForAction?.completed ? 'Reopen this task' : 'Move to completed section'}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+
+            {/* 3. Change Date & Time */}
+            <TouchableOpacity
+              style={styles.taskOptionRow}
+              onPress={() => {
+                setIsActionModalOpen(false);
+                setTimeout(() => setShowChangeDateModal(true), 250);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.taskOptionIconBox, { backgroundColor: '#FEF3C7' }]}>
+                <Feather name="calendar" size={16} color="#D97706" />
+              </View>
+              <View style={styles.taskOptionTextCol}>
+                <Text style={styles.taskOptionMainText}>Change Date & Time</Text>
+                <Text style={styles.taskOptionSubText}>Reschedule to Today, Tomorrow, or pick date</Text>
+              </View>
+              <Feather name="chevron-right" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+
+            {/* 4. Change Priority */}
+            <TouchableOpacity
+              style={styles.taskOptionRow}
+              onPress={() => {
+                setIsActionModalOpen(false);
+                setTimeout(() => setShowChangePriorityModal(true), 250);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.taskOptionIconBox, { backgroundColor: '#F3E8FF' }]}>
+                <Feather name="flag" size={16} color="#7C3AED" />
+              </View>
+              <View style={styles.taskOptionTextCol}>
+                <Text style={styles.taskOptionMainText}>Change Priority</Text>
+                <Text style={styles.taskOptionSubText}>Set to High, Medium, or Low</Text>
+              </View>
+              <Feather name="chevron-right" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+
+            {/* 5. Duplicate Task */}
+            <TouchableOpacity style={styles.taskOptionRow} onPress={handleDuplicateTask} activeOpacity={0.7}>
+              <View style={[styles.taskOptionIconBox, { backgroundColor: '#E0F2FE' }]}>
+                <Feather name="copy" size={16} color="#0284C7" />
+              </View>
+              <View style={styles.taskOptionTextCol}>
+                <Text style={styles.taskOptionMainText}>Duplicate Task</Text>
+                <Text style={styles.taskOptionSubText}>Create a copy of this task</Text>
+              </View>
+              <Feather name="chevron-right" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+
+            {/* 6. Delete Task */}
+            <TouchableOpacity style={[styles.taskOptionRow, { borderBottomWidth: 0 }]} onPress={handleDeleteTask} activeOpacity={0.7}>
+              <View style={[styles.taskOptionIconBox, { backgroundColor: '#FEE2E2' }]}>
+                <Feather name="trash-2" size={16} color="#DC2626" />
+              </View>
+              <View style={styles.taskOptionTextCol}>
+                <Text style={[styles.taskOptionMainText, { color: '#DC2626' }]}>Delete Task</Text>
+                <Text style={styles.taskOptionSubText}>Permanently remove this task</Text>
+              </View>
+              <Feather name="chevron-right" size={16} color="#DC2626" />
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
 
-          <Text style={styles.inputLabel}>Task Title</Text>
-          <TextInput
-            style={styles.modalInput}
-            placeholder="e.g. Design wireframes for LIVO"
-            placeholderTextColor="#94A3B8"
-            value={newTaskTitle}
-            onChangeText={setNewTaskTitle}
-            autoFocus
-          />
+      {/* Change Date & Time Sub-Modal */}
+      <Modal
+        visible={showChangeDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowChangeDateModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowChangeDateModal(false)}>
+          <View style={styles.modalOverlay} />
+        </TouchableWithoutFeedback>
+        <View style={styles.dropdownModalContent}>
+          <Text style={styles.dropdownModalTitle}>Change Date & Time</Text>
+          <TouchableOpacity style={styles.dropdownItem} onPress={() => handleChangeDate('today')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Feather name="sun" size={16} color="#D97706" style={{ marginRight: 10 }} />
+              <Text style={styles.dropdownItemText}>Today</Text>
+            </View>
+            <Feather name="chevron-right" size={14} color="#94A3B8" />
+          </TouchableOpacity>
 
-          <Text style={styles.inputLabel}>Category</Text>
-          <View style={styles.optionsRow}>
-            {(['Work', 'Learning', 'Personal', 'Health', 'Finance'] as TaskCategory[]).map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                style={[
-                  styles.optionChip,
-                  newTaskCategory === cat && styles.optionChipActive,
-                ]}
-                onPress={() => setNewTaskCategory(cat)}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    newTaskCategory === cat && styles.optionChipTextActive,
-                  ]}
-                >
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity style={styles.dropdownItem} onPress={() => handleChangeDate('tomorrow')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Feather name="sunrise" size={16} color="#2563EB" style={{ marginRight: 10 }} />
+              <Text style={styles.dropdownItemText}>Tomorrow</Text>
+            </View>
+            <Feather name="chevron-right" size={14} color="#94A3B8" />
+          </TouchableOpacity>
 
-          <Text style={styles.inputLabel}>Priority</Text>
-          <View style={styles.optionsRow}>
-            {(['High', 'Medium', 'Low'] as TaskPriority[]).map((prio) => (
-              <TouchableOpacity
-                key={prio}
-                style={[
-                  styles.optionChip,
-                  newTaskPriority === prio && styles.optionChipActivePriority,
-                ]}
-                onPress={() => setNewTaskPriority(prio)}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    newTaskPriority === prio && styles.optionChipTextActivePriority,
-                  ]}
-                >
-                  {prio}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity style={styles.dropdownItem} onPress={() => handleChangeDate('nextWeek')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Feather name="calendar" size={16} color="#16A34A" style={{ marginRight: 10 }} />
+              <Text style={styles.dropdownItemText}>Next Week (+7 days)</Text>
+            </View>
+            <Feather name="chevron-right" size={14} color="#94A3B8" />
+          </TouchableOpacity>
 
-          <Text style={styles.inputLabel}>Due Date / Time</Text>
-          <TextInput
-            style={styles.modalInput}
-            placeholder="e.g. Today, 4:00 PM"
-            placeholderTextColor="#94A3B8"
-            value={newTaskDueDate}
-            onChangeText={setNewTaskDueDate}
-          />
+          <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => handleChangeDate('custom')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Feather name="clock" size={16} color="#7C3AED" style={{ marginRight: 10 }} />
+              <Text style={[styles.dropdownItemText, { color: '#7C3AED', fontWeight: '700' }]}>Pick Custom Date / Time</Text>
+            </View>
+            <Feather name="chevron-right" size={14} color="#7C3AED" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
-          <TouchableOpacity style={styles.submitTaskBtn} onPress={handleAddNewTask}>
-            <Text style={styles.submitTaskText}>Create Task</Text>
+      {/* Change Priority Sub-Modal */}
+      <Modal
+        visible={showChangePriorityModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowChangePriorityModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowChangePriorityModal(false)}>
+          <View style={styles.modalOverlay} />
+        </TouchableWithoutFeedback>
+        <View style={styles.dropdownModalContent}>
+          <Text style={styles.dropdownModalTitle}>Change Priority</Text>
+          <TouchableOpacity style={styles.dropdownItem} onPress={() => handleChangePriority('High')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444', marginRight: 10 }} />
+              <Text style={styles.dropdownItemText}>High Priority</Text>
+            </View>
+            {selectedTaskForAction?.priority === 'High' && <Feather name="check" size={16} color="#EF4444" />}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.dropdownItem} onPress={() => handleChangePriority('Medium')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#D97706', marginRight: 10 }} />
+              <Text style={styles.dropdownItemText}>Medium Priority</Text>
+            </View>
+            {selectedTaskForAction?.priority === 'Medium' && <Feather name="check" size={16} color="#D97706" />}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => handleChangePriority('Low')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#2563EB', marginRight: 10 }} />
+              <Text style={styles.dropdownItemText}>Low Priority</Text>
+            </View>
+            {selectedTaskForAction?.priority === 'Low' && <Feather name="check" size={16} color="#2563EB" />}
           </TouchableOpacity>
         </View>
       </Modal>
@@ -1501,5 +1710,90 @@ const styles = StyleSheet.create({
   dropdownItemTextSelected: {
     color: '#66C400',
     fontWeight: '800',
+  },
+  taskOptionsModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    marginTop: 'auto',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  taskOptionsHeader: {
+    marginBottom: 12,
+  },
+  taskOptionsHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  taskOptionsTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  taskOptionsSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  taskOptionsTaskTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+    flex: 1,
+    marginRight: 10,
+  },
+  taskOptionsBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  taskOptionsBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  taskOptionsDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 8,
+  },
+  taskOptionsList: {
+    gap: 2,
+  },
+  taskOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  taskOptionIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  taskOptionTextCol: {
+    flex: 1,
+  },
+  taskOptionMainText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  taskOptionSubText: {
+    fontSize: 12,
+    color: '#94A3B8',
   },
 });

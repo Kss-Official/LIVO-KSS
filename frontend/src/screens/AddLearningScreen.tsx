@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { DatePickerField, TimePickerField, PrioritySelector, SelectionModal, SubtaskManager, AttachmentPicker, SelectionOption, CategoryPickerField, GoalPickerField } from '../components/forms';
+import { CreationSuccessModal } from '../components/ui/CreationSuccessModal';
+
 import {
   View,
   Text,
@@ -11,7 +14,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+
+import { useEvents } from '../hooks/useEvents';
 
 interface AddLearningScreenProps {
   onBack?: () => void;
@@ -19,39 +25,106 @@ interface AddLearningScreenProps {
 }
 
 export const AddLearningScreen: React.FC<AddLearningScreenProps> = ({ onBack, onSubmit }) => {
+  const navigation = useNavigation<any>();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs');
+    }
+  };
+
+  const { addEvent } = useEvents();
   const [learningTitle, setLearningTitle] = useState('');
   const [description, setDescription] = useState('');
   const [learningType, setLearningType] = useState<'course' | 'book' | 'video' | 'skill' | 'mentorship'>('course');
   const [category, setCategory] = useState('Design & Creative');
   const [difficulty, setDifficulty] = useState('Beginner');
-  const [startDate, setStartDate] = useState('Mon, 2 Sep 2024');
-  const [targetDate, setTargetDate] = useState('Select date');
-  const [studyTime, setStudyTime] = useState('30 Min');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTime, setSelectedTime] = useState<Date>(new Date());
+  const [duration, setDuration] = useState('30 Min');
+  const [location, setLocation] = useState('');
+  const [meetingType, setMeetingType] = useState<'in_person' | 'online' | 'phone'>('online');
   const [repeat, setRepeat] = useState('Daily');
   const [learningGoal, setLearningGoal] = useState('');
   const [resources, setResources] = useState('');
   const [notes, setNotes] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Design & Creative');
+  const [selectedGoal, setSelectedGoal] = useState('Build a strong portfolio');
+  const [reminder, setReminder] = useState('No reminder');
+  const [attachments, setAttachments] = useState<any[]>([]);
 
-  const handleSave = () => {
+  // Modals
+  const [showDurationModal, setShowDurationModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showRepeatModal, setShowRepeatModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdItem, setCreatedItem] = useState<any>(null);
+
+  const durationOptions: SelectionOption[] = [
+    { label: '15 Min', value: '15 Min' },
+    { label: '30 Min', value: '30 Min' },
+    { label: '45 Min', value: '45 Min' },
+    { label: '1 Hour', value: '1 Hour' },
+    { label: '1.5 Hours', value: '1.5 Hours' },
+    { label: '2 Hours', value: '2 Hours' },
+    { label: 'Custom', value: 'Custom' },
+  ];
+
+  const meetingTypeOptions: Array<{
+    label: string;
+    value: 'in_person' | 'online' | 'phone';
+    icon: string;
+  }> = [
+      { label: 'In person', value: 'in_person', icon: 'user' },
+      { label: 'Online', value: 'online', icon: 'video' },
+      { label: 'Phone', value: 'phone', icon: 'phone' },
+    ];
+
+  const handleSave = async () => {
+    if (!learningTitle.trim()) return;
     const data = {
-      learningTitle,
-      description,
+      learningTitle: learningTitle.trim(),
+      description: description.trim(),
       learningType,
-      category,
+      category: selectedCategory,
       difficulty,
-      startDate,
-      targetDate,
-      studyTime,
+      date: selectedDate,
+      time: selectedTime,
+      duration,
+      location: location.trim(),
+      meetingType,
       repeat,
       learningGoal,
       resources,
       notes,
+      attachments,
     };
+
+    await addEvent({
+      title: learningTitle.trim(),
+      description: description.trim() || `Type: ${learningType}`,
+      date: selectedDate.toISOString(),
+      startTime: selectedTime.toISOString(),
+      category: 'Learning',
+    });
+
     if (onSubmit) {
       onSubmit(data);
-    } else if (onBack) {
-      onBack();
     }
+    
+    setCreatedItem({ 
+      title: learningTitle.trim(), 
+      date: selectedDate, 
+      time: selectedTime, 
+      category: selectedCategory 
+    });
+    setShowSuccessModal(true);
   };
 
   return (
@@ -67,342 +140,211 @@ export const AddLearningScreen: React.FC<AddLearningScreenProps> = ({ onBack, on
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 1. Header Bar */}
+          {/* Header Bar */}
           <View style={styles.headerRow}>
-            <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
               <Feather name="arrow-left" size={22} color="#0F172A" />
             </TouchableOpacity>
 
             <View style={styles.headerTitleWrap}>
-              <Text style={styles.headerTitle}>Add Learning</Text>
-              <Text style={styles.headerSubtitle}>Invest in yourself. Learn something new.</Text>
+              <Text style={styles.headerTitle}>Add Learning Item</Text>
+              <Text style={styles.headerSubtitle}>Keep growing every day.</Text>
             </View>
 
-            <View style={styles.avatarCircle}>
+            <TouchableOpacity style={styles.avatarCircle} onPress={() => navigation.navigate('Profile')}>
               <Text style={styles.avatarText}>R</Text>
-            </View>
-          </View>
-
-          {/* 2. Top AI Planning Banner */}
-          <View style={styles.aiBanner}>
-            <View style={styles.aiBannerLeft}>
-              <View style={styles.aiIconWrap}>
-                <Ionicons name="sparkles" size={16} color="#2D6A00" />
-              </View>
-              <View style={styles.aiTextWrap}>
-                <Text style={styles.aiTitle}>Need help planning your learning?</Text>
-                <Text style={styles.aiSubtitle}>
-                  Tell LIVO what you want to learn, and I'll suggest resources, a study plan and milestones.
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.useAiBtn} activeOpacity={0.8}>
-              <Feather name="plus" size={14} color="#2D6A00" style={{ marginRight: 2 }} />
-              <Text style={styles.useAiBtnText}>Use AI</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 3. Learning Title */}
-          <View style={styles.fieldSection}>
-            <Text style={styles.label}>
-              Learning Title <Text style={styles.requiredStar}>*</Text>
-            </Text>
-            <View style={styles.inputBox}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g. Learn UI/UX Design"
-                placeholderTextColor="#94A3B8"
-                value={learningTitle}
-                onChangeText={setLearningTitle}
-              />
-            </View>
+          {/* Topic Title */}
+          <Text style={styles.label}>Topic / Course Title <Text style={styles.requiredStar}>*</Text></Text>
+          <View style={styles.inputBox}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. Advanced TypeScript & System Design"
+              placeholderTextColor="#CBD5E1"
+              value={learningTitle}
+              onChangeText={setLearningTitle}
+            />
           </View>
 
-          {/* 4. Description (optional) */}
-          <View style={styles.fieldSection}>
-            <Text style={styles.label}>
-              Description <Text style={styles.optionalText}>(optional)</Text>
-            </Text>
-            <View style={styles.multilineBox}>
-              <TextInput
-                style={styles.multilineInput}
-                placeholder="What do you want to learn? Why is it important to you?"
-                placeholderTextColor="#94A3B8"
-                multiline
-                numberOfLines={3}
-                maxLength={300}
-                value={description}
-                onChangeText={setDescription}
-              />
-              <Text style={styles.charCount}>{description.length}/300</Text>
-            </View>
+          {/* Notes */}
+          <Text style={styles.label}>Notes & Resources <Text style={styles.optionalText}>(optional)</Text></Text>
+          <View style={styles.textAreaBox}>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Add key takeaways, links, or notes..."
+              placeholderTextColor="#CBD5E1"
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
           </View>
 
-          {/* 5. Learning Type */}
-          <View style={styles.fieldSection}>
-            <Text style={styles.label}>Learning Type</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeScroll}>
-              <TouchableOpacity
-                style={[
-                  styles.typeCard,
-                  learningType === 'course' && styles.typeCardActive,
-                ]}
-                onPress={() => setLearningType('course')}
-              >
-                <Feather
-                  name="book-open"
-                  size={18}
-                  color={learningType === 'course' ? '#2D6A00' : '#475569'}
-                />
-                <Text
-                  style={[
-                    styles.typeText,
-                    learningType === 'course' && styles.typeTextActive,
-                  ]}
-                >
-                  Course
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.typeCard,
-                  learningType === 'book' && styles.typeCardActive,
-                ]}
-                onPress={() => setLearningType('book')}
-              >
-                <Feather
-                  name="book"
-                  size={18}
-                  color={learningType === 'book' ? '#2563EB' : '#475569'}
-                />
-                <Text
-                  style={[
-                    styles.typeText,
-                    learningType === 'book' && styles.typeTextActive,
-                  ]}
-                >
-                  Book
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.typeCard,
-                  learningType === 'video' && styles.typeCardActive,
-                ]}
-                onPress={() => setLearningType('video')}
-              >
-                <Feather
-                  name="video"
-                  size={18}
-                  color={learningType === 'video' ? '#DC2626' : '#475569'}
-                />
-                <Text
-                  style={[
-                    styles.typeText,
-                    learningType === 'video' && styles.typeTextActive,
-                  ]}
-                >
-                  Video Series
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.typeCard,
-                  learningType === 'skill' && styles.typeCardActive,
-                ]}
-                onPress={() => setLearningType('skill')}
-              >
-                <Ionicons
-                  name="school-outline"
-                  size={18}
-                  color={learningType === 'skill' ? '#7C3AED' : '#475569'}
-                />
-                <Text
-                  style={[
-                    styles.typeText,
-                    learningType === 'skill' && styles.typeTextActive,
-                  ]}
-                >
-                  Skill Practice
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.typeCard,
-                  learningType === 'mentorship' && styles.typeCardActive,
-                ]}
-                onPress={() => setLearningType('mentorship')}
-              >
-                <Feather
-                  name="user-check"
-                  size={18}
-                  color={learningType === 'mentorship' ? '#0D9488' : '#475569'}
-                />
-                <Text
-                  style={[
-                    styles.typeText,
-                    learningType === 'mentorship' && styles.typeTextActive,
-                  ]}
-                >
-                  Mentorship
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-
-          {/* 6. Category & Difficulty Level (2-Column Row) */}
+          {/* Date & Time Row 1 */}
           <View style={styles.twoColRow}>
             <View style={styles.colHalf}>
-              <Text style={styles.label}>Category</Text>
-              <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-                <Feather name="grid" size={16} color="#64748B" style={styles.inputLeftIcon} />
-                <Text style={styles.selectText}>{category}</Text>
-                <Feather name="chevron-down" size={16} color="#64748B" />
-              </TouchableOpacity>
+              <DatePickerField label="Start Date" value={selectedDate} onChange={setSelectedDate} />
             </View>
-
             <View style={styles.colHalf}>
-              <Text style={styles.label}>Difficulty Level</Text>
-              <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-                <Feather name="bar-chart-2" size={16} color="#64748B" style={styles.inputLeftIcon} />
-                <Text style={styles.selectText}>{difficulty}</Text>
-                <Feather name="chevron-down" size={16} color="#64748B" />
-              </TouchableOpacity>
+              <TimePickerField label="Study Time" value={selectedTime} onChange={setSelectedTime} />
             </View>
           </View>
 
-          {/* 7. Start Date & Target Completion Date (2-Column Row) */}
+          {/* Duration & Repeat Row 2 */}
           <View style={styles.twoColRow}>
             <View style={styles.colHalf}>
-              <Text style={styles.label}>Start Date</Text>
-              <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-                <Feather name="calendar" size={16} color="#64748B" style={styles.inputLeftIcon} />
-                <Text style={styles.selectText}>{startDate}</Text>
-                <Feather name="chevron-down" size={16} color="#64748B" />
+              <Text style={styles.label}>Duration</Text>
+              <TouchableOpacity
+                style={styles.dropdownBox}
+                onPress={() => setShowDurationModal(true)}
+                activeOpacity={0.7}
+              >
+                <Feather name="clock" size={15} color="#64748B" style={{ marginRight: 6 }} />
+                <Text style={styles.dropdownText}>{duration}</Text>
+                <Feather name="chevron-down" size={14} color="#94A3B8" style={{ marginLeft: 'auto' }} />
               </TouchableOpacity>
             </View>
-
-            <View style={styles.colHalf}>
-              <Text style={styles.label}>
-                Target Completion Date <Text style={styles.optionalText}>(optional)</Text>
-              </Text>
-              <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-                <Feather name="calendar" size={16} color="#64748B" style={styles.inputLeftIcon} />
-                <Text style={styles.selectTextPlaceholder}>{targetDate}</Text>
-                <Feather name="chevron-down" size={16} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* 8. Daily / Weekly Study Time & Repeat (2-Column Row) */}
-          <View style={styles.twoColRow}>
-            <View style={styles.colHalf}>
-              <Text style={styles.label}>Daily / Weekly Study Time</Text>
-              <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-                <Feather name="clock" size={16} color="#64748B" style={styles.inputLeftIcon} />
-                <Text style={styles.selectText}>{studyTime}</Text>
-                <Feather name="chevron-down" size={16} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
             <View style={styles.colHalf}>
               <Text style={styles.label}>Repeat</Text>
-              <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-                <Feather name="repeat" size={16} color="#64748B" style={styles.inputLeftIcon} />
-                <Text style={styles.selectText}>{repeat}</Text>
-                <Feather name="chevron-down" size={16} color="#64748B" />
+              <TouchableOpacity
+                style={styles.dropdownBox}
+                onPress={() => setShowRepeatModal(true)}
+                activeOpacity={0.7}
+              >
+                <Feather name="repeat" size={15} color="#64748B" style={{ marginRight: 6 }} />
+                <Text style={styles.dropdownText} numberOfLines={1}>{repeat}</Text>
+                <Feather name="chevron-down" size={14} color="#94A3B8" style={{ marginLeft: 'auto' }} />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* 9. Learning Goal (optional) */}
-          <View style={styles.fieldSection}>
-            <Text style={styles.label}>
-              Learning Goal <Text style={styles.optionalText}>(optional)</Text>
-            </Text>
-            <View style={styles.selectBox}>
-              <Ionicons name="disc-outline" size={16} color="#64748B" style={styles.inputLeftIcon} />
-              <TextInput
-                style={[styles.textInput, { flex: 1 }]}
-                placeholder="e.g. Complete the full course and build 3 projects"
-                placeholderTextColor="#94A3B8"
-                value={learningGoal}
-                onChangeText={setLearningGoal}
+          {/* Location */}
+          <Text style={styles.label}>
+            Location <Text style={styles.optionalText}>(optional)</Text>
+          </Text>
+          <View style={styles.inputBoxWithIcon}>
+            <Feather name="map-pin" size={16} color="#64748B" style={{ marginRight: 8 }} />
+            <TextInput
+              style={[styles.textInput, { flex: 1, borderWidth: 0, paddingHorizontal: 0, marginBottom: 0 }]}
+              placeholder="e.g. Online, Library, Classroom"
+              placeholderTextColor="#CBD5E1"
+              value={location}
+              onChangeText={setLocation}
+            />
+          </View>
+
+          {/* Meeting Type / Format */}
+          <Text style={styles.label}>Format / Learning Type</Text>
+          <View style={styles.meetingTypeRow}>
+            {meetingTypeOptions.map((opt) => {
+              const isSelected = meetingType === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[styles.meetingTypePill, isSelected && styles.meetingTypePillSelected]}
+                  onPress={() => setMeetingType(opt.value)}
+                  activeOpacity={0.7}
+                >
+                  <Feather
+                    name={opt.icon as any}
+                    size={14}
+                    color={isSelected ? '#66C400' : '#64748B'}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={[styles.meetingTypeText, isSelected && styles.meetingTypeTextSelected]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Category & Link to Goal */}
+          <View style={styles.twoColRow}>
+            <View style={styles.colHalf}>
+              <CategoryPickerField
+                value={selectedCategory}
+                onChange={setSelectedCategory}
+                options={[
+                  { label: 'Design & Creative', value: 'Design & Creative', icon: 'feather', iconColor: '#7C3AED', iconBgColor: '#F3E8FF' },
+                  { label: 'Programming', value: 'Programming', icon: 'code', iconColor: '#2563EB', iconBgColor: '#DBEAFE' },
+                  { label: 'Business', value: 'Business', icon: 'briefcase', iconColor: '#16A34A', iconBgColor: '#DCFCE7' },
+                  { label: 'Learning', value: 'Learning', icon: 'book-open', iconColor: '#2563EB', iconBgColor: '#DBEAFE' },
+                ]}
+              />
+            </View>
+            <View style={styles.colHalf}>
+              <GoalPickerField
+                value={selectedGoal}
+                onChange={setSelectedGoal}
+                label="Link to Goal"
+                options={[
+                  { label: 'Build a strong portfolio', value: 'Build a strong portfolio', icon: 'award', iconColor: '#7C3AED', iconBgColor: '#F3E8FF' },
+                  { label: 'Master Systems', value: 'Master Systems', icon: 'cpu', iconColor: '#2563EB', iconBgColor: '#DBEAFE' },
+                  { label: 'None', value: 'None', icon: 'slash', iconColor: '#94A3B8', iconBgColor: '#F1F5F9' },
+                ]}
               />
             </View>
           </View>
 
-          {/* 10. Add Resources (optional) */}
-          <View style={styles.fieldSection}>
-            <Text style={styles.label}>
-              Add Resources <Text style={styles.optionalText}>(optional)</Text>
-            </Text>
-            <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-              <Feather name="paperclip" size={16} color="#64748B" style={styles.inputLeftIcon} />
-              <TextInput
-                style={[styles.textInput, { flex: 1 }]}
-                placeholder="Add a course link, video, book or notes"
-                placeholderTextColor="#94A3B8"
-                value={resources}
-                onChangeText={setResources}
-              />
-              <Feather name="chevron-right" size={16} color="#64748B" />
-            </TouchableOpacity>
-          </View>
+          {/* Attachments */}
 
-          {/* 11. Add Notes (optional) */}
-          <View style={styles.fieldSection}>
-            <Text style={styles.label}>
-              Add Notes <Text style={styles.optionalText}>(optional)</Text>
-            </Text>
-            <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-              <Feather name="edit-3" size={16} color="#64748B" style={styles.inputLeftIcon} />
-              <TextInput
-                style={[styles.textInput, { flex: 1 }]}
-                placeholder="Any additional notes..."
-                placeholderTextColor="#94A3B8"
-                value={notes}
-                onChangeText={setNotes}
-              />
-              <Feather name="chevron-right" size={16} color="#64748B" />
-            </TouchableOpacity>
-          </View>
+          <AttachmentPicker attachments={attachments} onChange={setAttachments} />
 
-          {/* 12. Learning Insight Banner */}
-          <View style={styles.tipCard}>
-            <View style={styles.tipLeftCol}>
-              <View style={styles.tipIconWrap}>
-                <Feather name="plus" size={16} color="#2D6A00" />
-              </View>
-              <View style={styles.tipTextWrap}>
-                <Text style={styles.tipTitle}>Learning Insight</Text>
-                <Text style={styles.tipSubtitle}>
-                  Consistent learning, even for 30 minutes a day, can make a big difference over time.
-                </Text>
-              </View>
-            </View>
+          <View style={{ height: 40 }} />
 
-            <TouchableOpacity style={styles.getSuggestionsBtn} activeOpacity={0.8}>
-              <Text style={styles.getSuggestionsText}>Get Suggestions</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* 13. Bottom Action Buttons */}
-          <View style={styles.actionButtonsRow}>
+          {/* Action Buttons */}
+          <View style={styles.actionRow}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onBack} activeOpacity={0.8}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.createBtn} onPress={handleSave} activeOpacity={0.8}>
-              <Text style={styles.createBtnText}>Create Learning</Text>
+            <TouchableOpacity
+              style={[styles.createBtn, !learningTitle.trim() && styles.createBtnDisabled]}
+              onPress={handleSave}
+              disabled={!learningTitle.trim()}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.createBtnText}>Save Learning</Text>
             </TouchableOpacity>
           </View>
+
+          <SelectionModal
+            visible={showDurationModal}
+            onClose={() => setShowDurationModal(false)}
+            title="Select Duration"
+            options={durationOptions}
+            selectedValue={duration}
+            onSelect={setDuration}
+          />
+          <SelectionModal
+            visible={showRepeatModal}
+            onClose={() => setShowRepeatModal(false)}
+            title="Repeat"
+            options={[
+              { label: 'Daily', value: 'Daily' },
+              { label: 'Weekly', value: 'Weekly' },
+              { label: 'Monthly', value: 'Monthly' },
+            ]}
+            selectedValue={repeat}
+            onSelect={setRepeat}
+          />
         </ScrollView>
+        <CreationSuccessModal
+          visible={showSuccessModal}
+          itemType="Learning"
+          itemData={createdItem}
+          onClose={() => {
+            setShowSuccessModal(false);
+          }}
+          onViewTask={() => {
+            setShowSuccessModal(false);
+            navigation.navigate('MainTabs', { screen: 'Plan' });
+          }}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -417,322 +359,193 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 40 : 8,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 35,
+    paddingBottom: 32,
   },
-
-  /* Header */
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
   headerTitleWrap: {
     flex: 1,
-    marginHorizontal: 12,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
   },
   headerSubtitle: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
   },
   avatarCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E2F7C5',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#66C400',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#2D6A00',
-  },
-
-  /* AI Banner */
-  aiBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 20,
-  },
-  aiBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-    marginRight: 10,
-  },
-  aiIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    marginTop: 2,
-  },
-  aiTextWrap: {
-    flex: 1,
-  },
-  aiTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  aiSubtitle: {
-    fontSize: 11.5,
-    color: '#475569',
-    lineHeight: 16,
-  },
-  useAiBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  useAiBtnText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#2D6A00',
-  },
-
-  /* Form Section & Labels */
-  fieldSection: {
-    marginBottom: 16,
+    color: '#FFFFFF',
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#0F172A',
+    fontWeight: '700',
+    color: '#1E293B',
     marginBottom: 6,
   },
   requiredStar: {
-    color: '#DC2626',
+    color: '#EF4444',
   },
   optionalText: {
-    fontWeight: '400',
+    fontSize: 11,
     color: '#94A3B8',
-    fontSize: 12,
+    fontWeight: '400',
   },
   inputBox: {
-    height: 48,
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
-    justifyContent: 'center',
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  inputBoxWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
   },
   textInput: {
     fontSize: 14,
     color: '#0F172A',
     padding: 0,
   },
-
-  /* Multiline Input */
-  multilineBox: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  textAreaBox: {
     backgroundColor: '#FFFFFF',
-    padding: 12,
-    minHeight: 100,
-    justifyContent: 'space-between',
-  },
-  multilineInput: {
-    fontSize: 14,
-    color: '#0F172A',
-    textAlignVertical: 'top',
-    padding: 0,
-    minHeight: 65,
-  },
-  charCount: {
-    fontSize: 11,
-    color: '#94A3B8',
-    alignSelf: 'flex-end',
-    marginTop: 4,
-  },
-
-  /* Type Cards */
-  typeScroll: {
-    flexDirection: 'row',
-  },
-  typeCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 16,
-    marginRight: 8,
-    minWidth: 72,
+    marginBottom: 16,
+    height: 90,
   },
-  typeCardActive: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#66C400',
+  textArea: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    padding: 0,
   },
-  typeText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569',
-    marginTop: 4,
-  },
-  typeTextActive: {
-    color: '#2D6A00',
-  },
-
-  /* Two Column Row */
   twoColRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 16,
   },
   colHalf: {
-    width: '48.5%',
+    flex: 1,
   },
-  selectBox: {
-    height: 48,
+  dropdownBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  dropdownText: {
+    fontSize: 13,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  meetingTypeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  meetingTypePill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
   },
-  inputLeftIcon: {
-    marginRight: 8,
+  meetingTypePillSelected: {
+    borderColor: '#66C400',
+    backgroundColor: '#F7FEE7',
+    borderWidth: 1.5,
   },
-  selectText: {
-    fontSize: 13.5,
-    color: '#0F172A',
-    fontWeight: '500',
-    flex: 1,
-  },
-  selectTextPlaceholder: {
-    fontSize: 13.5,
-    color: '#94A3B8',
-    fontWeight: '400',
-    flex: 1,
-  },
-
-  /* Tip Card */
-  tipCard: {
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 8,
-    marginBottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  tipLeftCol: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-    marginRight: 10,
-  },
-  tipIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    marginTop: 2,
-  },
-  tipTextWrap: {
-    flex: 1,
-  },
-  tipTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  tipSubtitle: {
-    fontSize: 11.5,
-    color: '#475569',
-    lineHeight: 16,
-  },
-  getSuggestionsBtn: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 12,
-  },
-  getSuggestionsText: {
+  meetingTypeText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2D6A00',
+    fontWeight: '600',
+    color: '#475569',
   },
-
-  /* Action Buttons */
-  actionButtonsRow: {
+  meetingTypeTextSelected: {
+    color: '#1E293B',
+    fontWeight: '700',
+  },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
+    gap: 12,
   },
   cancelBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   cancelBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#475569',
   },
   createBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 24,
+    flex: 1.3,
     backgroundColor: '#66C400',
+    borderRadius: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+  },
+  createBtnDisabled: {
+    backgroundColor: '#CBD5E1',
   },
   createBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
 });
+
+

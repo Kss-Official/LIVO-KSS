@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
@@ -27,6 +28,29 @@ import { AddTripScreen } from '../screens/AddTripScreen';
 import { AddLearningScreen } from '../screens/AddLearningScreen';
 import { AddHealthScreen } from '../screens/AddHealthScreen';
 import { AddOptainsScreen } from '../screens/AddOptainsScreen';
+import { ScanAndAddScreen } from '../screens/ScanAndAddScreen';
+import { ReviewAndAddScreen } from '../screens/ReviewAndAddScreen';
+import { CalendarScreen } from '../screens/CalendarScreen';
+import { AiUnavailableScreen } from '../screens/AiUnavailableScreen';
+import { OfflineScreen } from '../screens/OfflineScreen';
+import { GeneralErrorScreen } from '../screens/GeneralErrorScreen';
+import { UpdatingLivoScreen } from '../screens/UpdatingLivoScreen';
+import { ScheduleConflictScreen } from '../screens/ScheduleConflictScreen';
+import { OverloadedDayScreen } from '../screens/OverloadedDayScreen';
+import { TaskOverdueScreen } from '../screens/TaskOverdueScreen';
+import { FreeDayScreen } from '../screens/FreeDayScreen';
+import { ScheduleScreen } from '../screens/ScheduleScreen';
+import { ProgressScreen } from '../screens/ProgressScreen';
+import { SearchScreen } from '../screens/SearchScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ChatWithLivoScreen } from '../screens/ChatWithLivoScreen';
+import { TimeDetailsScreen } from '../screens/TimeDetailsScreen';
+import { VoiceRecordingScreen } from '../screens/VoiceRecordingScreen';
+
+import { OnboardingFirstTaskScreen } from '../screens/onboarding/OnboardingFirstTaskScreen';
+import { OnboardingFirstGoalScreen } from '../screens/onboarding/OnboardingFirstGoalScreen';
+import { OnboardingFirstEventScreen } from '../screens/onboarding/OnboardingFirstEventScreen';
+import { OnboardingFirstHabitScreen } from '../screens/onboarding/OnboardingFirstHabitScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -39,8 +63,8 @@ const MainTabNavigator: React.FC = () => {
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E2E8F0',
-          height: 64,
-          paddingBottom: 8,
+          height: Platform.OS === 'ios' ? 84 : 74,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 14,
           paddingTop: 8,
           elevation: 10,
           shadowColor: '#000',
@@ -83,7 +107,7 @@ const MainTabNavigator: React.FC = () => {
             <TouchableOpacity
               {...props}
               style={{
-                top: -14,
+                top: -18,
                 justifyContent: 'center',
                 alignItems: 'center',
                 flex: 1,
@@ -127,17 +151,81 @@ const MainTabNavigator: React.FC = () => {
 };
 
 export const RootNavigator: React.FC = () => {
+  const [initialRoute, setInitialRoute] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const value = await AsyncStorage.getItem('@livo_onboarding_completed');
+        if (value === 'true') {
+          setInitialRoute('MainTabs');
+        } else {
+          setInitialRoute('Welcome');
+        }
+      } catch (e) {
+        setInitialRoute('Welcome');
+      }
+    };
+    checkOnboardingStatus();
+  }, []);
+
+  if (!initialRoute) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#EFF8E2' }}>
+        <ActivityIndicator size="large" color="#80D611" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Welcome">
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
         <Stack.Screen name="Welcome">
           {(props) => (
             <WelcomeScreen
               onGetStarted={() => props.navigation.navigate('SignUp')}
-              onLogin={() => props.navigation.navigate('MainTabs')}
+              onLogin={() => props.navigation.navigate('SignIn')}
             />
           )}
         </Stack.Screen>
+
+        {/* First-Time Onboarding Flow Screens */}
+        <Stack.Screen name="OnboardingFirstTask">
+          {(props) => (
+            <OnboardingFirstTaskScreen
+              onNext={() => props.navigation.goBack()}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen name="OnboardingFirstGoal">
+          {(props) => (
+            <OnboardingFirstGoalScreen
+              onNext={() => props.navigation.goBack()}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen name="OnboardingFirstEvent">
+          {(props) => (
+            <OnboardingFirstEventScreen
+              onNext={() => props.navigation.goBack()}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen name="OnboardingFirstHabit">
+          {(props) => (
+            <OnboardingFirstHabitScreen
+              onFinish={() => props.navigation.goBack()}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
         <Stack.Screen name="SignUp">
           {(props) => (
             <SignUpScreen
@@ -151,16 +239,24 @@ export const RootNavigator: React.FC = () => {
           )}
         </Stack.Screen>
         <Stack.Screen name="SignIn">
-          {(props) => (
-            <SignInScreen
-              onBack={() => props.navigation.goBack()}
-              onSignInSubmit={() => props.navigation.navigate('MainTabs')}
-              onSignUp={() => props.navigation.navigate('SignUp')}
-              onGoogleSignUp={() => props.navigation.navigate('MainTabs')}
-              onAppleSignUp={() => props.navigation.navigate('MainTabs')}
-              onMicrosoftSignUp={() => props.navigation.navigate('MainTabs')}
-            />
-          )}
+          {(props) => {
+            const handleSuccessLogin = async () => {
+              try {
+                await AsyncStorage.setItem('@livo_onboarding_completed', 'true');
+              } catch (e) {}
+              props.navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+            };
+            return (
+              <SignInScreen
+                onBack={() => props.navigation.goBack()}
+                onSignInSubmit={handleSuccessLogin}
+                onSignUp={() => props.navigation.navigate('SignUp')}
+                onGoogleSignUp={handleSuccessLogin}
+                onAppleSignUp={handleSuccessLogin}
+                onMicrosoftSignUp={handleSuccessLogin}
+              />
+            );
+          }}
         </Stack.Screen>
         <Stack.Screen name="SelectCategories">
           {(props) => (
@@ -183,40 +279,269 @@ export const RootNavigator: React.FC = () => {
         <Stack.Screen name="AllSet">
           {(props) => (
             <AllSetScreen
-              onGoHome={() => props.navigation.navigate('MainTabs')}
+              onGoHome={async () => {
+                try {
+                  await AsyncStorage.setItem('@livo_onboarding_completed', 'true');
+                } catch (e) {}
+                props.navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+              }}
+              onCreateGoal={() => props.navigation.navigate('OnboardingFirstGoal')}
+              onAddTask={() => props.navigation.navigate('OnboardingFirstTask')}
+              onPlanSchedule={() => props.navigation.navigate('OnboardingFirstEvent')}
+              onBuildHabit={() => props.navigation.navigate('OnboardingFirstHabit')}
             />
           )}
         </Stack.Screen>
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="AddTask">
-          {(props) => <AddTaskScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddTaskScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="AddEvent">
-          {(props) => <AddEventScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddEventScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="AddGoal">
-          {(props) => <AddGoalScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddGoalScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="AddHabit">
-          {(props) => <AddHabitScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddHabitScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="AddExpense">
-          {(props) => <AddExpenseScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddExpenseScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="AddTrip">
-          {(props) => <AddTripScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddTripScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="AddLearning">
-          {(props) => <AddLearningScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddLearningScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="AddHealth">
-          {(props) => <AddHealthScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddHealthScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="AddOptains">
-          {(props) => <AddOptainsScreen onBack={() => props.navigation.goBack()} />}
+          {(props: any) => (
+            <AddOptainsScreen
+              {...props}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ScanAndAdd">
+          {(props) => <ScanAndAddScreen navigation={props.navigation} onBack={() => props.navigation.goBack()} />}
+        </Stack.Screen>
+        <Stack.Screen name="ReviewAndAdd">
+          {(props) => <ReviewAndAddScreen route={props.route} navigation={props.navigation} onBack={() => props.navigation.goBack()} />}
+        </Stack.Screen>
+        <Stack.Screen name="Calendar">
+          {(props) => (
+            <CalendarScreen
+              onBack={() => props.navigation.goBack()}
+              onNavigateTab={(tab) => {
+                props.navigation.navigate('MainTabs', { screen: tab });
+              }}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="AiUnavailable">
+          {(props) => (
+            <AiUnavailableScreen
+              onBack={() => props.navigation.goBack()}
+              onContinueWithoutAi={() => props.navigation.navigate('MainTabs')}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Offline">
+          {(props) => (
+            <OfflineScreen
+              onBack={() => props.navigation.goBack()}
+              onContinueOffline={() => props.navigation.navigate('MainTabs')}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="GeneralError">
+          {(props) => (
+            <GeneralErrorScreen
+              onBack={() => props.navigation.goBack()}
+              onGoHome={() => props.navigation.navigate('MainTabs')}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="SomethingWentWrong">
+          {(props) => (
+            <GeneralErrorScreen
+              onBack={() => props.navigation.goBack()}
+              onGoHome={() => props.navigation.navigate('MainTabs')}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="UpdatingLivo">
+          {(props) => (
+            <UpdatingLivoScreen
+              onBack={() => props.navigation.goBack()}
+              onComplete={() => props.navigation.navigate('MainTabs')}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Loading">
+          {(props) => (
+            <UpdatingLivoScreen
+              onBack={() => props.navigation.goBack()}
+              onComplete={() => props.navigation.navigate('MainTabs')}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ScheduleConflict">
+          {(props) => (
+            <ScheduleConflictScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="OverloadedDay">
+          {(props) => (
+            <OverloadedDayScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="TaskOverdue">
+          {(props) => (
+            <TaskOverdueScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="MissedDeadline">
+          {(props) => (
+            <TaskOverdueScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="FreeDay">
+          {(props) => (
+            <FreeDayScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="EmptyDay">
+          {(props) => (
+            <FreeDayScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Tasks">
+          {(props) => (
+            <TasksScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Schedule">
+          {(props) => (
+            <ScheduleScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Progress">
+          {(props) => (
+            <ProgressScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Search">
+          {(props) => (
+            <SearchScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Notifications">
+          {(props) => (
+            <NotificationsScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ChatWithLivo">
+          {(props) => (
+            <ChatWithLivoScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Ai">
+          {(props) => (
+            <AiScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="TimeDetails">
+          {(props) => (
+            <TimeDetailsScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="VoiceRecording">
+          {(props) => (
+            <VoiceRecordingScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="AddHub">
+          {(props) => (
+            <AddHubScreen
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
   );
 };
-

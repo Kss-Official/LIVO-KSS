@@ -7,8 +7,11 @@ import {
   SafeAreaView,
   StatusBar,
   ScrollView,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { SelectionModal } from '../components/forms/SelectionModal';
 
 interface PersonalizeScreenProps {
   onBack?: () => void;
@@ -16,75 +19,78 @@ interface PersonalizeScreenProps {
   onSkip?: () => void;
 }
 
-interface PreferenceItem {
-  id: string;
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  value: string;
-  valueSecondLine?: string;
-}
-
 export const PersonalizeScreen: React.FC<PersonalizeScreenProps> = ({
   onBack,
   onComplete,
   onSkip,
 }: PersonalizeScreenProps) => {
-  const [prefs] = useState<PreferenceItem[]>([
+  // Preference values state
+  const [language, setLanguage] = useState('English');
+  const [timeZone, setTimeZone] = useState('(GMT+05:30)');
+  const [timeZoneCountry, setTimeZoneCountry] = useState('India');
+  const [notifications, setNotifications] = useState('Enabled');
+  const [appearance, setAppearance] = useState('Light');
+  const [aiPreference, setAiPreference] = useState('Personalized');
+
+  // Active modal state
+  const [activeModal, setActiveModal] = useState<'language' | 'timezone' | 'notifications' | 'appearance' | 'ai' | null>(null);
+
+  const prefs = [
     {
       id: 'language',
       icon: <Ionicons name="globe-outline" size={22} color="#1A202C" />,
       title: 'Language',
       subtitle: 'Choose your preferred language',
-      value: 'English',
+      value: language,
+      onPress: () => setActiveModal('language'),
     },
     {
       id: 'timezone',
       icon: <Feather name="clock" size={22} color="#1A202C" />,
       title: 'Time zone',
       subtitle: 'Set your local time zone',
-      value: '(GMT+05:30)',
-      valueSecondLine: 'India',
+      value: timeZone,
+      valueSecondLine: timeZoneCountry,
+      onPress: () => setActiveModal('timezone'),
     },
     {
       id: 'notifications',
       icon: <Ionicons name="notifications-outline" size={22} color="#1A202C" />,
       title: 'Notifications',
       subtitle: 'Stay updated with what matters',
-      value: 'Enabled',
+      value: notifications,
+      onPress: () => setActiveModal('notifications'),
     },
     {
       id: 'appearance',
       icon: <MaterialCommunityIcons name="palette-outline" size={22} color="#1A202C" />,
       title: 'Appearance',
       subtitle: 'Choose your theme and style',
-      value: 'Light',
+      value: appearance,
+      onPress: () => setActiveModal('appearance'),
     },
     {
       id: 'ai',
       icon: <MaterialCommunityIcons name="asterisk" size={22} color="#1A202C" />,
       title: 'AI Preferences',
       subtitle: 'Get smarter, more relevant suggestions',
-      value: 'Personalized',
+      value: aiPreference,
+      onPress: () => setActiveModal('ai'),
     },
-  ]);
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Background — same diffused glow system */}
-      {/* Top-right blob */}
+      {/* Background glow elements */}
       <View style={[styles.bgGlow, { top: -180, right: -60, width: 480, height: 480, borderRadius: 240, backgroundColor: '#C8F07A', opacity: 0.20 }]} />
       <View style={[styles.bgGlow, { top: -120, right: -10, width: 350, height: 350, borderRadius: 175, backgroundColor: '#B5E84E', opacity: 0.14 }]} />
       <View style={[styles.bgGlow, { top: -320, right: -320, width: 800, height: 800, borderRadius: 400, backgroundColor: '#D7F59E', opacity: 0.06 }]} />
-      {/* Bottom green glow */}
       <View style={[styles.bgGlow, { bottom: -200, left: -160, width: 560, height: 560, borderRadius: 280, backgroundColor: '#C8F07A', opacity: 0.18 }]} />
       <View style={[styles.bgGlow, { bottom: -140, left: -100, width: 400, height: 400, borderRadius: 200, backgroundColor: '#B5E84E', opacity: 0.13 }]} />
       <View style={[styles.bgGlow, { bottom: -280, left: -280, width: 720, height: 720, borderRadius: 360, backgroundColor: '#D7F59E', opacity: 0.06 }]} />
-      {/* Arc ring */}
       <View style={styles.bgArcCircle} />
-
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -105,7 +111,6 @@ export const PersonalizeScreen: React.FC<PersonalizeScreenProps> = ({
             <Text style={styles.stepText}>Step 3 of 3</Text>
           </View>
 
-          {/* Spacer to balance layout */}
           <View style={{ width: 38 }} />
         </View>
 
@@ -115,13 +120,14 @@ export const PersonalizeScreen: React.FC<PersonalizeScreenProps> = ({
           Set a few preferences to get the most out of{'\n'}LIVO.
         </Text>
 
-        {/* Preference Cards (Separated boxes) */}
+        {/* Preference Cards */}
         <View style={styles.prefList}>
           {prefs.map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.prefCard}
               activeOpacity={0.78}
+              onPress={item.onPress}
             >
               {/* Icon */}
               <View style={styles.prefIconWrap}>
@@ -148,7 +154,6 @@ export const PersonalizeScreen: React.FC<PersonalizeScreenProps> = ({
           ))}
         </View>
 
-        {/* Space for fixed bottom footer */}
         <View style={{ height: 120 }} />
       </ScrollView>
 
@@ -160,21 +165,90 @@ export const PersonalizeScreen: React.FC<PersonalizeScreenProps> = ({
             <Feather name="arrow-right" size={18} color="#0F172A" />
           </TouchableOpacity>
 
-          {/* Decorative badge overlapping bottom-right of button */}
-          <View style={styles.badge}>
-            <Text style={styles.badgeTextLine1}>A more</Text>
-            <Text style={styles.badgeTextLine2}>organized you</Text>
-            <View style={styles.badgeUnderlineWrap}>
-              <Text style={styles.badgeTextLine3}>starts here.</Text>
-              <View style={styles.badgeUnderline} />
-            </View>
-          </View>
+
         </View>
 
         <TouchableOpacity onPress={onSkip} activeOpacity={0.7} style={styles.skipTouchable}>
           <Text style={styles.skipText}>I'll do this later</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Selection Modals */}
+      <SelectionModal
+        visible={activeModal === 'language'}
+        onClose={() => setActiveModal(null)}
+        title="Choose Language"
+        options={[
+          { label: 'English', value: 'English', icon: 'globe' },
+          { label: 'Hindi (हिंदी)', value: 'Hindi', icon: 'globe' },
+          { label: 'Spanish (Español)', value: 'Spanish', icon: 'globe' },
+          { label: 'French (Français)', value: 'French', icon: 'globe' },
+          { label: 'German (Deutsch)', value: 'German', icon: 'globe' },
+        ]}
+        selectedValue={language}
+        onSelect={setLanguage}
+      />
+
+      <SelectionModal
+        visible={activeModal === 'timezone'}
+        onClose={() => setActiveModal(null)}
+        title="Set Time Zone"
+        options={[
+          { label: '(GMT+05:30) India', value: '(GMT+05:30)' },
+          { label: '(GMT-05:00) US Eastern Time', value: '(GMT-05:00)' },
+          { label: '(GMT+00:00) UTC / London', value: '(GMT+00:00)' },
+          { label: '(GMT+01:00) Central Europe', value: '(GMT+01:00)' },
+          { label: '(GMT+09:00) Tokyo / Japan', value: '(GMT+09:00)' },
+        ]}
+        selectedValue={timeZone}
+        onSelect={(val) => {
+          setTimeZone(val);
+          if (val === '(GMT+05:30)') setTimeZoneCountry('India');
+          else if (val === '(GMT-05:00)') setTimeZoneCountry('USA');
+          else if (val === '(GMT+00:00)') setTimeZoneCountry('UK');
+          else if (val === '(GMT+01:00)') setTimeZoneCountry('Europe');
+          else setTimeZoneCountry('Japan');
+        }}
+      />
+
+      <SelectionModal
+        visible={activeModal === 'notifications'}
+        onClose={() => setActiveModal(null)}
+        title="Notifications"
+        options={[
+          { label: 'Enabled', value: 'Enabled', icon: 'bell' },
+          { label: 'Disabled', value: 'Disabled', icon: 'bell-off' },
+          { label: 'Quiet Hours (Night Only)', value: 'Quiet Hours', icon: 'moon' },
+        ]}
+        selectedValue={notifications}
+        onSelect={setNotifications}
+      />
+
+      <SelectionModal
+        visible={activeModal === 'appearance'}
+        onClose={() => setActiveModal(null)}
+        title="Choose Theme"
+        options={[
+          { label: 'Light Theme', value: 'Light', icon: 'sun' },
+          { label: 'Dark Theme', value: 'Dark', icon: 'moon' },
+          { label: 'System Default', value: 'System', icon: 'monitor' },
+        ]}
+        selectedValue={appearance}
+        onSelect={setAppearance}
+      />
+
+      <SelectionModal
+        visible={activeModal === 'ai'}
+        onClose={() => setActiveModal(null)}
+        title="AI Preferences"
+        options={[
+          { label: 'Personalized (Recommended)', value: 'Personalized' },
+          { label: 'Standard AI Suggestions', value: 'Standard' },
+          { label: 'Minimal AI Interaction', value: 'Minimal' },
+        ]}
+        selectedValue={aiPreference}
+        onSelect={setAiPreference}
+      />
     </SafeAreaView>
   );
 };

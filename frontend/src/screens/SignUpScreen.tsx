@@ -51,14 +51,83 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
 
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [termsError, setTermsError] = useState('');
+
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [agreeUpdates, setAgreeUpdates] = useState(true);
 
   const handleSignUp = () => {
+    let hasError = false;
+
+    // Name validation
+    const trimmedName = name.trim();
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!trimmedName || !nameRegex.test(trimmedName)) {
+      setNameError('Please enter a valid name.');
+      hasError = true;
+    } else {
+      setNameError('');
+    }
+
+    // Email validation
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setEmailError('Please enter a valid email address.');
+      hasError = true;
+    } else {
+      setEmailError('');
+    }
+
+    // Phone validation
+    const trimmedPhone = phone.trim();
+    const cleanPhone = trimmedPhone.replace(/[\s-]/g, '');
+    const phoneRegex = /^[0-9]{7,15}$/;
+    if (!trimmedPhone || !phoneRegex.test(cleanPhone)) {
+      setPhoneError('Please enter a valid phone number.');
+      hasError = true;
+    } else {
+      setPhoneError('');
+    }
+
+    // Password validation
+    if (!password || password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.');
+      hasError = true;
+    } else {
+      setPasswordError('');
+    }
+
+    // Confirm Password validation
+    if (!confirmPassword) {
+      setConfirmPasswordError('Please confirm your password.');
+      hasError = true;
+    } else if (confirmPassword !== password) {
+      setConfirmPasswordError('Passwords do not match.');
+      hasError = true;
+    } else {
+      setConfirmPasswordError('');
+    }
+
+    // Terms validation
+    if (!agreeTerms) {
+      setTermsError('Please agree to the Terms of Service.');
+      hasError = true;
+    } else {
+      setTermsError('');
+    }
+
+    if (hasError) return;
+
     if (onCreateAccount) {
-      onCreateAccount({ name, email, phone: `${countryCode} ${phone}`, password });
+      onCreateAccount({ name: trimmedName, email: trimmedEmail, phone: `${countryCode} ${trimmedPhone}`, password });
     } else if (onSignInSubmit) {
-      onSignInSubmit({ email, password });
+      onSignInSubmit({ email: trimmedEmail, password });
     }
   };
 
@@ -124,30 +193,45 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
           {/* Form Fields */}
           <View style={styles.formContainer}>
             {/* Full Name */}
-            <View style={[styles.inputWrapper, nameFocused && styles.inputWrapperFocused]}>
-              <Feather name="user" size={18} color={nameFocused ? '#95E612' : '#94A3B8'} style={styles.inputIcon} />
+            <View style={[
+              styles.inputWrapper,
+              nameFocused && styles.inputWrapperFocused,
+              !!nameError && styles.inputWrapperError,
+            ]}>
+              <Feather name="user" size={18} color={nameError ? '#EF4444' : nameFocused ? '#95E612' : '#94A3B8'} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Full name"
                 placeholderTextColor="#94A3B8"
                 value={name}
-                onChangeText={setName}
+                onChangeText={(text) => {
+                  setName(text);
+                  if (nameError) setNameError('');
+                }}
                 onFocus={() => setNameFocused(true)}
                 onBlur={() => setNameFocused(false)}
                 autoCapitalize="words"
                 returnKeyType="next"
               />
             </View>
+            {!!nameError && <Text style={styles.errorText}>{nameError}</Text>}
 
             {/* Email Address */}
-            <View style={[styles.inputWrapper, emailFocused && styles.inputWrapperFocused]}>
-              <Feather name="mail" size={18} color={emailFocused ? '#95E612' : '#94A3B8'} style={styles.inputIcon} />
+            <View style={[
+              styles.inputWrapper,
+              emailFocused && styles.inputWrapperFocused,
+              !!emailError && styles.inputWrapperError,
+            ]}>
+              <Feather name="mail" size={18} color={emailError ? '#EF4444' : emailFocused ? '#95E612' : '#94A3B8'} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email address"
                 placeholderTextColor="#94A3B8"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (emailError) setEmailError('');
+                }}
                 onFocus={() => setEmailFocused(true)}
                 onBlur={() => setEmailFocused(false)}
                 keyboardType="email-address"
@@ -155,10 +239,15 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 returnKeyType="next"
               />
             </View>
+            {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
 
             {/* Phone Number */}
-            <View style={[styles.inputWrapper, phoneFocused && styles.inputWrapperFocused]}>
-              <Feather name="phone" size={18} color={phoneFocused ? '#95E612' : '#94A3B8'} style={styles.inputIcon} />
+            <View style={[
+              styles.inputWrapper,
+              phoneFocused && styles.inputWrapperFocused,
+              !!phoneError && styles.inputWrapperError,
+            ]}>
+              <Feather name="phone" size={18} color={phoneError ? '#EF4444' : phoneFocused ? '#95E612' : '#94A3B8'} style={styles.inputIcon} />
               <TouchableOpacity style={styles.countrySelector} activeOpacity={0.7}>
                 <Text style={styles.countryCodeText}>{countryCode}</Text>
                 <Feather name="chevron-down" size={14} color="#64748B" style={styles.chevronIcon} />
@@ -169,20 +258,29 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 placeholder="Phone number"
                 placeholderTextColor="#94A3B8"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(text) => {
+                  setPhone(text);
+                  if (phoneError) setPhoneError('');
+                }}
                 onFocus={() => setPhoneFocused(true)}
                 onBlur={() => setPhoneFocused(false)}
                 keyboardType="phone-pad"
                 returnKeyType="next"
               />
             </View>
+            {!!phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
 
             {/* Create Password */}
-            <View style={[styles.inputWrapper, passwordFocused && styles.inputWrapperFocused, { marginBottom: 4 }]}>
+            <View style={[
+              styles.inputWrapper,
+              passwordFocused && styles.inputWrapperFocused,
+              !!passwordError && styles.inputWrapperError,
+              { marginBottom: 4 }
+            ]}>
               <MaterialCommunityIcons
                 name="lock-outline"
                 size={19}
-                color={passwordFocused ? '#95E612' : '#94A3B8'}
+                color={passwordError ? '#EF4444' : passwordFocused ? '#95E612' : '#94A3B8'}
                 style={styles.inputIcon}
               />
               <TextInput
@@ -190,7 +288,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 placeholder="Create a password"
                 placeholderTextColor="#94A3B8"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (passwordError) setPasswordError('');
+                }}
                 onFocus={() => setPasswordFocused(true)}
                 onBlur={() => setPasswordFocused(false)}
                 secureTextEntry={!showPassword}
@@ -209,14 +310,20 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 />
               </TouchableOpacity>
             </View>
+            {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
             <Text style={styles.passwordHint}>At least 8 characters with a number and a symbol</Text>
 
             {/* Confirm Password */}
-            <View style={[styles.inputWrapper, confirmPasswordFocused && styles.inputWrapperFocused, { marginTop: 10 }]}>
+            <View style={[
+              styles.inputWrapper,
+              confirmPasswordFocused && styles.inputWrapperFocused,
+              !!confirmPasswordError && styles.inputWrapperError,
+              { marginTop: 10 }
+            ]}>
               <MaterialCommunityIcons
                 name="lock-outline"
                 size={19}
-                color={confirmPasswordFocused ? '#95E612' : '#94A3B8'}
+                color={confirmPasswordError ? '#EF4444' : confirmPasswordFocused ? '#95E612' : '#94A3B8'}
                 style={styles.inputIcon}
               />
               <TextInput
@@ -224,7 +331,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 placeholder="Confirm password"
                 placeholderTextColor="#94A3B8"
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (confirmPasswordError) setConfirmPasswordError('');
+                }}
                 onFocus={() => setConfirmPasswordFocused(true)}
                 onBlur={() => setConfirmPasswordFocused(false)}
                 secureTextEntry={!showConfirmPassword}
@@ -243,16 +353,24 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 />
               </TouchableOpacity>
             </View>
+            {!!confirmPasswordError && <Text style={styles.errorText}>{confirmPasswordError}</Text>}
           </View>
 
           {/* Checkboxes */}
           <View style={styles.checkboxesContainer}>
             <TouchableOpacity
               style={styles.checkboxRow}
-              onPress={() => setAgreeTerms(!agreeTerms)}
+              onPress={() => {
+                setAgreeTerms(!agreeTerms);
+                if (termsError) setTermsError('');
+              }}
               activeOpacity={0.8}
             >
-              <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
+              <View style={[
+                styles.checkbox,
+                agreeTerms && styles.checkboxChecked,
+                !!termsError && styles.checkboxError,
+              ]}>
                 {agreeTerms && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
               </View>
               <Text style={styles.checkboxText}>
@@ -260,6 +378,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 <Text style={styles.greenLinkText}>Privacy Policy</Text>
               </Text>
             </TouchableOpacity>
+            {!!termsError && <Text style={[styles.errorText, { marginLeft: 28, marginTop: -6, marginBottom: 8 }]}>{termsError}</Text>}
 
             <TouchableOpacity
               style={styles.checkboxRow}
@@ -468,6 +587,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+  },
+  inputWrapperError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '600',
+    marginTop: -8,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  checkboxError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
   },
   inputIcon: {
     marginRight: 12,

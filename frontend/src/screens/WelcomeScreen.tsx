@@ -15,11 +15,13 @@ const { width } = Dimensions.get('window');
 
 interface WelcomeScreenProps {
   onGetStarted?: () => void;
+  onCreateFirstGoal?: () => void;
   onLogin?: () => void;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onGetStarted,
+  onCreateFirstGoal,
   onLogin,
 }: WelcomeScreenProps) => {
   return (
@@ -122,7 +124,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <TouchableOpacity
             style={styles.getStartedButton}
             activeOpacity={0.88}
-            onPress={onGetStarted}
+            onPress={onCreateFirstGoal || onGetStarted}
           >
             <Text style={styles.getStartedText}>Get Started</Text>
             <Feather name="arrow-right" size={20} color="#1A202C" style={styles.arrowIcon} />
@@ -172,7 +174,7 @@ const styles = StyleSheet.create({
   /* Header Section */
   headerContainer: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 44,
     zIndex: 10,
   },
   logoImage: {
@@ -230,6 +232,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+
   },
   chipText: {
     fontSize: 13.5,

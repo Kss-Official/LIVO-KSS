@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -9,53 +10,219 @@ import {
   StatusBar,
   Platform,
   DimensionValue,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { TimeDetailsScreen } from './TimeDetailsScreen';
+import { ChatWithLivoScreen } from './ChatWithLivoScreen';
+import { useTasks } from '../hooks/useTasks';
+import { useHabits } from '../hooks/useHabits';
+import { useGoals } from '../hooks/useGoals';
+import { useEvents } from '../hooks/useEvents';
+
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useProfile } from '../hooks/useProfile';
 
 interface InsightsScreenProps {
   onNavigateToTimeDetails?: () => void;
 }
 
 export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTimeDetails }) => {
-  const [showTimeDetails, setShowTimeDetails] = useState(false);
+  const navigation = useNavigation<any>();
+  const { profile, refreshProfile } = useProfile();
+  const [selectedTimeframe, setSelectedTimeframe] = useState('This Week');
+  const [showTimeframeModal, setShowTimeframeModal] = useState(false);
 
-  if (showTimeDetails) {
-    return <TimeDetailsScreen onBack={() => setShowTimeDetails(false)} />;
-  }
-  const legendData = [
-    { label: 'Work', percent: '40%', color: '#66C400' },
-    { label: 'Personal', percent: '20%', color: '#3B82F6' },
-    { label: 'Learning', percent: '15%', color: '#8B5CF6' },
-    { label: 'Health', percent: '10%', color: '#EF4444' },
-    { label: 'Travel', percent: '5%', color: '#F97316' },
-    { label: 'Others', percent: '10%', color: '#CBD5E1' },
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshProfile();
+    }, [refreshProfile])
+  );
+
+  // Detail Modal States
+  const [activeDetailModal, setActiveDetailModal] = useState<'tasks' | 'goals' | 'habits' | 'learning' | 'insight' | null>(null);
+  const [currentInsightIndex, setCurrentInsightIndex] = useState(0);
+
+  // Dynamic data from hooks
+  const { tasks } = useTasks();
+  const { habits } = useHabits();
+  const { goals } = useGoals();
+  const { events } = useEvents();
+
+  const getFilteredData = <T extends { date?: string; dueDate?: string; targetDate?: string; createdAt?: string }>(data: T[], timeframe: string) => {
+    return data.filter(item => {
+      if (timeframe === 'Overall') return true;
+      const dateStr = item.date || item.dueDate || item.targetDate || item.createdAt;
+      if (!dateStr) return false;
+      
+      const date = new Date(dateStr);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (timeframe === 'This Month') {
+        return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth();
+      }
+
+      if (timeframe === 'This Week') {
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+        const start = new Date(today);
+        start.setDate(diff);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        return date >= start && date <= end;
+      }
+
+      if (timeframe === 'Last Week') {
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+        const startThis = new Date(today);
+        startThis.setDate(diff);
+        const start = new Date(startThis);
+        start.setDate(startThis.getDate() - 7);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        return date >= start && date <= end;
+      }
+
+      return true;
+    });
+  };
+
+  const filteredTasks = getFilteredData(tasks, selectedTimeframe);
+  const filteredHabits = getFilteredData(habits, selectedTimeframe);
+  const filteredGoals = getFilteredData(goals, selectedTimeframe);
+  const filteredEvents = getFilteredData(events, selectedTimeframe);
+
+  const realTotalTasks = filteredTasks.length;
+  const realCompletedTasks = filteredTasks.filter(t => t.completed).length;
+  const realTotalHabits = filteredHabits.length;
+  const realDoneHabits = filteredHabits.filter(h => h.streakCount > 0 || h.completedToday).length;
+  const realTotalGoals = filteredGoals.length;
+  const realProgressingGoals = filteredGoals.filter(g => (g.progressPercentage || 0) > 0).length;
+
+  const insightsList = [
+    `You completed ${realCompletedTasks} tasks for ${selectedTimeframe}! Keep up the momentum.`,
+    `You have ${realDoneHabits} active habits right now. Consistency is key!`,
+    `You're making progress on ${realProgressingGoals} goals. Keep focusing on what matters.`,
   ];
 
+  let totalMinutes = 0;
+  const categoryCounts: Record<string, number> = { Work: 0, Personal: 0, Learning: 0, Health: 0, Travel: 0, Others: 0 };
+  
+  const processItem = (category?: string, duration?: string | number) => {
+    let cat = category || 'Others';
+    const matchCat = ['Work', 'Personal', 'Learning', 'Health', 'Travel', 'Others'].find(c => c.toLowerCase() === cat.toLowerCase());
+    cat = matchCat || 'Others';
+    let mins = 30; // default 30 mins
+    if (typeof duration === 'number') mins = duration;
+    else if (typeof duration === 'string') {
+      const num = parseInt(duration);
+      if (!isNaN(num)) mins = num;
+    }
+    categoryCounts[cat] += mins;
+    totalMinutes += mins;
+  };
+
+  filteredTasks.forEach(t => processItem(t.category, t.estimatedMinutes || t.duration));
+  filteredEvents.forEach(e => {
+    let mins = 60; // default
+    if (e.startTime && e.endTime) {
+      const startMatch = e.startTime.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+      const endMatch = e.endTime.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+      if (startMatch && endMatch) {
+         let sh = parseInt(startMatch[1]), sm = parseInt(startMatch[2]);
+         if (startMatch[3]?.toUpperCase() === 'PM' && sh < 12) sh += 12;
+         if (startMatch[3]?.toUpperCase() === 'AM' && sh === 12) sh = 0;
+         let eh = parseInt(endMatch[1]), em = parseInt(endMatch[2]);
+         if (endMatch[3]?.toUpperCase() === 'PM' && eh < 12) eh += 12;
+         if (endMatch[3]?.toUpperCase() === 'AM' && eh === 12) eh = 0;
+         const diff = (eh * 60 + em) - (sh * 60 + sm);
+         if (diff > 0) mins = diff;
+      }
+    }
+    processItem(e.category, mins);
+  });
+
+  const colors: Record<string, string> = {
+    Work: '#66C400', Personal: '#3B82F6', Learning: '#8B5CF6', 
+    Health: '#EF4444', Travel: '#F97316', Others: '#CBD5E1'
+  };
+
+  const legendData = Object.entries(categoryCounts).map(([label, score]) => {
+    const percent = totalMinutes > 0 ? Math.round((score / totalMinutes) * 100) : (label === 'Others' ? 100 : 0);
+    return { label, percent: percent + '%', color: colors[label] || '#CBD5E1', score };
+  }).sort((a, b) => b.score - a.score);
+
+  const totalTimeStr = totalMinutes > 0 ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m` : '0h 0m';
+  const totalTimeHours = totalMinutes > 0 ? Math.floor(totalMinutes / 60) : 0;
+  const totalTimeMins = totalMinutes > 0 ? totalMinutes % 60 : 0;
+
+  const hourBuckets = { '6am': 0, '9am': 0, '12pm': 0, '3pm': 0, '6pm': 0, '9pm': 0 };
+  const parseHour = (timeStr?: string) => {
+    if (!timeStr) return null;
+    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (match) {
+        let h = parseInt(match[1]);
+        if (match[3].toUpperCase() === 'PM' && h < 12) h += 12;
+        if (match[3].toUpperCase() === 'AM' && h === 12) h = 0;
+        return h;
+    }
+    const match24 = timeStr.match(/(\d+):(\d+)/);
+    if (match24) return parseInt(match24[1]);
+    return null;
+  };
+  const processTime = (timeStr?: string) => {
+    const h = parseHour(timeStr);
+    if (h === null) return;
+    if (h >= 5 && h < 9) hourBuckets['6am']++;
+    else if (h >= 9 && h < 12) hourBuckets['9am']++;
+    else if (h >= 12 && h < 15) hourBuckets['12pm']++;
+    else if (h >= 15 && h < 18) hourBuckets['3pm']++;
+    else if (h >= 18 && h < 21) hourBuckets['6pm']++;
+    else hourBuckets['9pm']++;
+  };
+  filteredTasks.forEach(t => processTime(t.time));
+  filteredEvents.forEach(e => processTime(e.startTime));
+  
+  const maxBucket = Math.max(...Object.values(hourBuckets), 1);
   const productiveHours: { label: string; height: DimensionValue; color: string }[] = [
-    { label: '6am', height: '40%', color: '#EBF9DB' },
-    { label: '9am', height: '90%', color: '#66C400' },
-    { label: '12pm', height: '80%', color: '#66C400' },
-    { label: '3pm', height: '35%', color: '#EBF9DB' },
-    { label: '6pm', height: '55%', color: '#EBF9DB' },
-    { label: '9pm', height: '30%', color: '#EBF9DB' },
+    { label: '6am', height: `${(hourBuckets['6am'] / maxBucket) * 100}%`, color: hourBuckets['6am'] === maxBucket && hourBuckets['6am'] > 0 ? '#66C400' : '#EBF9DB' },
+    { label: '9am', height: `${(hourBuckets['9am'] / maxBucket) * 100}%`, color: hourBuckets['9am'] === maxBucket && hourBuckets['9am'] > 0 ? '#66C400' : '#EBF9DB' },
+    { label: '12pm', height: `${(hourBuckets['12pm'] / maxBucket) * 100}%`, color: hourBuckets['12pm'] === maxBucket && hourBuckets['12pm'] > 0 ? '#66C400' : '#EBF9DB' },
+    { label: '3pm', height: `${(hourBuckets['3pm'] / maxBucket) * 100}%`, color: hourBuckets['3pm'] === maxBucket && hourBuckets['3pm'] > 0 ? '#66C400' : '#EBF9DB' },
+    { label: '6pm', height: `${(hourBuckets['6pm'] / maxBucket) * 100}%`, color: hourBuckets['6pm'] === maxBucket && hourBuckets['6pm'] > 0 ? '#66C400' : '#EBF9DB' },
+    { label: '9pm', height: `${(hourBuckets['9pm'] / maxBucket) * 100}%`, color: hourBuckets['9pm'] === maxBucket && hourBuckets['9pm'] > 0 ? '#66C400' : '#EBF9DB' },
   ];
+  
+  let bestTime = 'morning';
+  if (hourBuckets['12pm'] + hourBuckets['3pm'] > hourBuckets['6am'] + hourBuckets['9am']) bestTime = 'afternoon';
+  if (hourBuckets['6pm'] + hourBuckets['9pm'] > Math.max(hourBuckets['6am'] + hourBuckets['9am'], hourBuckets['12pm'] + hourBuckets['3pm'])) bestTime = 'evening';
+  if (maxBucket === 1 && Object.values(hourBuckets).every(v => v === 0)) bestTime = 'any time';
 
-  const habitDays = [
-    { day: 'Mon', completed: true },
-    { day: 'Tue', completed: true },
-    { day: 'Wed', completed: true },
-    { day: 'Thu', completed: false },
-    { day: 'Fri', completed: true },
-    { day: 'Sat', completed: true },
-    { day: 'Sun', completed: false },
-  ];
+  const habitDays = Array.from({ length: 7 }).map((_, i) => {
+    const d = 6 - i;
+    const date = new Date();
+    date.setDate(date.getDate() - d);
+    const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+    const completed = habits.some(h => {
+      if (d === 0) return h.completedToday;
+      if (h.completedToday) return d < h.streakCount;
+      return d <= h.streakCount && d > 0;
+    });
+    return { day: dayName, completed };
+  });
 
-  const goalsList = [
-    { title: 'Build a strong port', progress: 60 },
-    { title: 'Learn React', progress: 40 },
-    { title: 'Improve fitness', progress: 75 },
-  ];
+  const goalsList = filteredGoals.slice(0, 3).map(g => ({
+    title: g.title,
+    progress: Math.round(g.progressPercentage || 0)
+  }));
+  if (goalsList.length === 0) {
+    goalsList.push({ title: 'No goals set for this timeframe', progress: 0 });
+  }
 
   const expenseBars: { day: string; height: DimensionValue }[] = [
     { day: 'Mon', height: '40%' },
@@ -79,21 +246,22 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
         {/* 1. Header Row */}
         <View style={styles.headerRow}>
           <View>
-            <View style={styles.logoRow}>
-              <Text style={styles.logoText}>LIVO</Text>
-              <View style={styles.logoDot} />
-            </View>
+            <Image
+              source={require('../../assets/livo_logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.logoSubtitle}>A BETTER YOU</Text>
           </View>
 
           <View style={styles.headerRightActions}>
-            <TouchableOpacity style={styles.thisWeekPill}>
-              <Text style={styles.thisWeekText}>This Week</Text>
+            <TouchableOpacity style={styles.thisWeekPill} onPress={() => setShowTimeframeModal(true)}>
+              <Text style={styles.thisWeekText}>{selectedTimeframe}</Text>
               <Feather name="chevron-down" size={13} color="#64748B" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>R</Text>
+            <TouchableOpacity style={styles.avatarCircle} onPress={() => navigation.navigate('Profile' as never)}>
+              <Text style={styles.avatarText}>{profile.name.charAt(0).toUpperCase()}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -118,7 +286,7 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
           <View style={styles.consistencyTextWrap}>
             <Text style={styles.consistencyTitle}>You showed up consistently this week!</Text>
             <Text style={styles.consistencySub}>
-              You completed 8 out of 10 planned tasks. Keep the momentum going.
+              You completed {realCompletedTasks} out of {realTotalTasks} planned tasks. Keep the momentum going.
             </Text>
           </View>
         </View>
@@ -134,44 +302,44 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
 
           <View style={styles.glanceGrid}>
             {/* Stat 1: Tasks */}
-            <View style={styles.glanceCard}>
+            <TouchableOpacity style={styles.glanceCard} onPress={() => setActiveDetailModal('tasks')}>
               <View style={styles.glanceCardHeader}>
                 <Feather name="check" size={12} color="#66C400" style={{ marginRight: 4 }} />
                 <Text style={styles.glanceCardLabel}>Tasks</Text>
               </View>
-              <Text style={styles.glanceCardValue}>8 / 10</Text>
+              <Text style={styles.glanceCardValue}>{realCompletedTasks} / {realTotalTasks}</Text>
               <Text style={[styles.glanceCardSub, { color: '#66C400' }]}>↑ 2</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Stat 2: Goals */}
-            <View style={styles.glanceCard}>
+            <TouchableOpacity style={styles.glanceCard} onPress={() => setActiveDetailModal('goals')}>
               <View style={styles.glanceCardHeader}>
                 <Ionicons name="disc-outline" size={12} color="#8B5CF6" style={{ marginRight: 4 }} />
                 <Text style={styles.glanceCardLabel}>Goals</Text>
               </View>
-              <Text style={styles.glanceCardValue}>2 / 3</Text>
+              <Text style={styles.glanceCardValue}>{realProgressingGoals} / {realTotalGoals}</Text>
               <Text style={[styles.glanceCardSub, { color: '#8B5CF6' }]}>↑ 1</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Stat 3: Habits */}
-            <View style={styles.glanceCard}>
+            <TouchableOpacity style={styles.glanceCard} onPress={() => setActiveDetailModal('habits')}>
               <View style={styles.glanceCardHeader}>
                 <Ionicons name="stats-chart-outline" size={12} color="#F97316" style={{ marginRight: 4 }} />
                 <Text style={styles.glanceCardLabel}>Habits</Text>
               </View>
-              <Text style={styles.glanceCardValue}>5 / 7</Text>
+              <Text style={styles.glanceCardValue}>{realDoneHabits} / {realTotalHabits}</Text>
               <Text style={[styles.glanceCardSub, { color: '#F97316' }]}>↑ 1</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Stat 4: Learning */}
-            <View style={styles.glanceCard}>
+            <TouchableOpacity style={styles.glanceCard} onPress={() => setActiveDetailModal('learning')}>
               <View style={styles.glanceCardHeader}>
                 <Feather name="book-open" size={12} color="#3B82F6" style={{ marginRight: 4 }} />
                 <Text style={styles.glanceCardLabel}>Learning</Text>
               </View>
               <Text style={styles.glanceCardValue}>4h 30m</Text>
               <Text style={[styles.glanceCardSub, { color: '#3B82F6' }]}>↑ 1h</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -183,7 +351,7 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
               style={styles.seeDetailsBtn}
               onPress={() => {
                 if (onNavigateToTimeDetails) onNavigateToTimeDetails();
-                setShowTimeDetails(true);
+                else navigation.navigate('TimeDetails');
               }}
               activeOpacity={0.7}
             >
@@ -192,15 +360,15 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.totalTimeSub}>Total 28h 30m</Text>
+          <Text style={styles.totalTimeSub}>Total {totalTimeStr}</Text>
 
           <View style={styles.donutWidgetRow}>
             {/* Donut Graphic */}
             <View style={styles.donutGraphicWrap}>
               <View style={styles.donutOuterCircle}>
                 <View style={styles.donutInnerCircle}>
-                  <Text style={styles.donutCenterValue}>28h</Text>
-                  <Text style={styles.donutCenterSub}>30m</Text>
+                  <Text style={styles.donutCenterValue}>{totalTimeHours}h</Text>
+                  <Text style={styles.donutCenterSub}>{totalTimeMins}m</Text>
                 </View>
               </View>
             </View>
@@ -225,7 +393,7 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
           <Text style={styles.cardTitle}>Most Productive Time</Text>
           <View style={styles.hintSubRow}>
             <Feather name="sun" size={13} color="#F59E0B" style={{ marginRight: 4 }} />
-            <Text style={styles.hintSubText}>You do your best work in the morning.</Text>
+            <Text style={styles.hintSubText}>You do your best work in the {bestTime}.</Text>
           </View>
 
           <View style={styles.productiveChartContainer}>
@@ -248,7 +416,7 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
         {/* 7. Habit Consistency */}
         <View style={styles.whiteCardSection}>
           <Text style={styles.cardTitle}>Habit Consistency</Text>
-          <Text style={styles.subtextLabel}>5 / 7 habits this week</Text>
+          <Text style={styles.subtextLabel}>{realDoneHabits} / {realTotalHabits} habits this week</Text>
 
           <View style={styles.habitDaysRow}>
             {habitDays.map((h) => (
@@ -272,7 +440,7 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
 
           <View style={styles.goalsList}>
             {goalsList.map((goal) => (
-              <View key={goal.title} style={styles.goalItemBlock}>
+              <TouchableOpacity key={goal.title} style={styles.goalItemBlock} onPress={() => setActiveDetailModal('goals')}>
                 <View style={styles.goalRowHeader}>
                   <View style={styles.goalTitleWrap}>
                     <View style={styles.goalDotIcon} />
@@ -284,7 +452,7 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
                 <View style={styles.goalProgressTrack}>
                   <View style={[styles.goalProgressFill, { width: `${goal.progress}%` }]} />
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -313,7 +481,10 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
         </View>
 
         {/* 10. LIVO Insight Carousel Card */}
-        <View style={styles.livoInsightCard}>
+        <TouchableOpacity
+          style={styles.livoInsightCard}
+          onPress={() => setCurrentInsightIndex((prev) => (prev + 1) % insightsList.length)}
+        >
           <View style={styles.insightHeaderRow}>
             <Ionicons name="sparkles" size={14} color="#7C3AED" style={{ marginRight: 6 }} />
             <Text style={styles.insightHeaderText}>LIVO Insight</Text>
@@ -321,18 +492,24 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
 
           <View style={styles.insightQuoteBox}>
             <Text style={styles.insightQuoteText}>
-              “You're more productive on days when you work out. Consider keeping your morning workouts!”
+              “{insightsList[currentInsightIndex]}”
             </Text>
             <Feather name="chevron-right" size={16} color="#7C3AED" style={{ marginLeft: 6 }} />
           </View>
 
           {/* Carousel Dots */}
           <View style={styles.carouselDotsRow}>
-            <View style={[styles.carouselDot, styles.carouselDotActive]} />
-            <View style={styles.carouselDot} />
-            <View style={styles.carouselDot} />
+            {insightsList.map((_, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.carouselDot,
+                  currentInsightIndex === idx && styles.carouselDotActive,
+                ]}
+              />
+            ))}
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* 11. Get deeper insights with LIVO (Bottom AI Banner) */}
         <View style={styles.deeperBanner}>
@@ -347,13 +524,100 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ onNavigateToTime
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.askLivoBtn}>
+          <TouchableOpacity style={styles.askLivoBtn} onPress={() => navigation.navigate('ChatWithLivo')}>
             <Text style={styles.askLivoText}>Ask LIVO →</Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Timeframe Filter Modal */}
+      <Modal visible={showTimeframeModal} transparent animationType="fade" onRequestClose={() => setShowTimeframeModal(false)}>
+        <TouchableWithoutFeedback onPress={() => setShowTimeframeModal(false)}>
+          <View style={styles.modalOverlay} />
+        </TouchableWithoutFeedback>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Select Timeframe</Text>
+          {['This Week', 'Last Week', 'This Month', 'Overall'].map((tf) => (
+            <TouchableOpacity
+              key={tf}
+              style={[styles.modalOptionRow, selectedTimeframe === tf && styles.modalOptionSelected]}
+              onPress={() => {
+                setSelectedTimeframe(tf);
+                setShowTimeframeModal(false);
+              }}
+            >
+              <Text style={[styles.modalOptionText, selectedTimeframe === tf && styles.modalOptionTextSelected]}>{tf}</Text>
+              {selectedTimeframe === tf && <Feather name="check" size={16} color="#66C400" />}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Modal>
+
+      {/* Detail Breakdown Modal */}
+      <Modal visible={activeDetailModal !== null} transparent animationType="fade" onRequestClose={() => setActiveDetailModal(null)}>
+        <TouchableWithoutFeedback onPress={() => setActiveDetailModal(null)}>
+          <View style={styles.modalOverlay} />
+        </TouchableWithoutFeedback>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeaderRow}>
+            <Text style={styles.modalTitle}>
+              {activeDetailModal === 'tasks' && 'Task Performance'}
+              {activeDetailModal === 'goals' && 'Goal Progress Breakdown'}
+              {activeDetailModal === 'habits' && 'Habit Consistency Analysis'}
+              {activeDetailModal === 'learning' && 'Learning Hours Breakdown'}
+            </Text>
+            <TouchableOpacity onPress={() => setActiveDetailModal(null)}>
+              <Feather name="x" size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          {activeDetailModal === 'tasks' && (
+            <View>
+              <Text style={styles.modalSubText}>
+                You've completed {realCompletedTasks} of {realTotalTasks} tasks for {selectedTimeframe.toLowerCase()}. High priority items had an 85% completion rate.
+              </Text>
+              <TouchableOpacity style={styles.modalActionBtn} onPress={() => setActiveDetailModal(null)}>
+                <Text style={styles.modalActionBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {activeDetailModal === 'goals' && (
+            <View>
+              <Text style={styles.modalSubText}>
+                {realProgressingGoals} out of {realTotalGoals} active goals are actively advancing this week. Your top moving goal is "Improve fitness" at 75%.
+              </Text>
+              <TouchableOpacity style={styles.modalActionBtn} onPress={() => setActiveDetailModal(null)}>
+                <Text style={styles.modalActionBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {activeDetailModal === 'habits' && (
+            <View>
+              <Text style={styles.modalSubText}>
+                {realDoneHabits} of {realTotalHabits} habits completed. Your current longest streak is 12 consecutive days!
+              </Text>
+              <TouchableOpacity style={styles.modalActionBtn} onPress={() => setActiveDetailModal(null)}>
+                <Text style={styles.modalActionBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {activeDetailModal === 'learning' && (
+            <View>
+              <Text style={styles.modalSubText}>
+                4 hours and 30 minutes logged in learning activities this week. Most focused learning happened on Tuesday morning.
+              </Text>
+              <TouchableOpacity style={styles.modalActionBtn} onPress={() => setActiveDetailModal(null)}>
+                <Text style={styles.modalActionBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -380,30 +644,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: 0.5,
-  },
-  logoDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#66C400',
-    marginLeft: 2,
-    marginTop: 6,
+  logoImage: {
+    width: 77,
+    height: 32,
   },
   logoSubtitle: {
-    fontSize: 9,
+    fontSize: 7.5,
     fontWeight: '700',
     color: '#94A3B8',
-    letterSpacing: 1.2,
-    marginTop: -2,
+    letterSpacing: 1.3,
+    marginTop: 1,
+    marginLeft: 5,
   },
   headerRightActions: {
     flexDirection: 'row',
@@ -912,5 +1163,73 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+
+  /* Modals */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+  },
+  modalContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 10,
+  },
+  modalSubText: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalActionBtn: {
+    backgroundColor: '#66C400',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalActionBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  modalOptionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 6,
+    backgroundColor: '#F8FAFC',
+  },
+  modalOptionSelected: {
+    backgroundColor: '#EBF9DB',
+  },
+  modalOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  modalOptionTextSelected: {
+    color: '#2D6A00',
+    fontWeight: '700',
   },
 });
