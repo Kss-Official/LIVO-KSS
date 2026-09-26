@@ -6,6 +6,7 @@ export const useAi = () => {
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | undefined>();
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -30,6 +31,7 @@ export const useAi = () => {
       id: Date.now().toString(),
       text,
       sender: 'USER',
+      isUser: true,
       timestamp: new Date().toISOString(),
     };
     
@@ -37,22 +39,26 @@ export const useAi = () => {
     setIsLoading(true);
 
     try {
-      await aiService.saveMessage({ text, sender: 'USER' });
+      // Real backend Gemini 1.5/2.0 Flash AI call
+      const reply = await aiService.sendChatMessage(text, conversationId);
+      if (reply.conversationId) {
+        setConversationId(reply.conversationId);
+      }
 
-      // Mock AI response delay
-      setTimeout(async () => {
-        const mockResponse = "I'm your LIVO AI assistant! This is a mock response, as backend is not connected yet. How can I help you organize your day?";
-        const aiMsg = await aiService.saveMessage({
-          text: mockResponse,
-          sender: 'LIVO_AI',
-        });
-        setMessages(prev => [...prev, aiMsg]);
-        setIsLoading(false);
-      }, 1500);
+      const aiMsg: AiChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: reply.content,
+        sender: 'LIVO_AI',
+        isUser: false,
+        timestamp: new Date().toISOString(),
+      };
 
+      setMessages(prev => [...prev, aiMsg]);
+      setError(null);
     } catch (err) {
       setError('Failed to send message');
       console.error(err);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -61,6 +67,7 @@ export const useAi = () => {
     try {
       await aiService.clearHistory();
       setMessages([]);
+      setConversationId(undefined);
     } catch (err) {
       console.error(err);
     }

@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from '../services/authService';
 
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
@@ -230,18 +231,41 @@ export const RootNavigator: React.FC = () => {
           {(props) => (
             <SignUpScreen
               onBack={() => props.navigation.goBack()}
-              onCreateAccount={() => props.navigation.navigate('SelectCategories')}
+              onCreateAccount={async (data) => {
+                if (data?.email) {
+                  await authService.syncUser({
+                    email: data.email,
+                    fullName: data.name || data.email.split('@')[0],
+                  });
+                }
+                props.navigation.navigate('SelectCategories');
+              }}
               onSignIn={() => props.navigation.navigate('SignIn')}
-              onGoogleSignUp={() => props.navigation.navigate('MainTabs')}
-              onAppleSignUp={() => props.navigation.navigate('MainTabs')}
-              onMicrosoftSignUp={() => props.navigation.navigate('MainTabs')}
+              onGoogleSignUp={async () => {
+                await authService.syncUser({ email: 'google.user@livo.app', fullName: 'Google User' });
+                props.navigation.navigate('MainTabs');
+              }}
+              onAppleSignUp={async () => {
+                await authService.syncUser({ email: 'apple.user@livo.app', fullName: 'Apple User' });
+                props.navigation.navigate('MainTabs');
+              }}
+              onMicrosoftSignUp={async () => {
+                await authService.syncUser({ email: 'microsoft.user@livo.app', fullName: 'Microsoft User' });
+                props.navigation.navigate('MainTabs');
+              }}
             />
           )}
         </Stack.Screen>
         <Stack.Screen name="SignIn">
           {(props) => {
-            const handleSuccessLogin = async () => {
+            const handleSuccessLogin = async (data?: { email?: string; password?: string }) => {
               try {
+                if (data?.email) {
+                  await authService.syncUser({
+                    email: data.email,
+                    fullName: data.email.split('@')[0],
+                  });
+                }
                 await AsyncStorage.setItem('@livo_onboarding_completed', 'true');
               } catch (e) {}
               props.navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
@@ -250,10 +274,11 @@ export const RootNavigator: React.FC = () => {
               <SignInScreen
                 onBack={() => props.navigation.goBack()}
                 onSignInSubmit={handleSuccessLogin}
+                onSignIn={handleSuccessLogin}
                 onSignUp={() => props.navigation.navigate('SignUp')}
-                onGoogleSignUp={handleSuccessLogin}
-                onAppleSignUp={handleSuccessLogin}
-                onMicrosoftSignUp={handleSuccessLogin}
+                onGoogleSignUp={() => handleSuccessLogin({ email: 'google.user@livo.app' })}
+                onAppleSignUp={() => handleSuccessLogin({ email: 'apple.user@livo.app' })}
+                onMicrosoftSignUp={() => handleSuccessLogin({ email: 'microsoft.user@livo.app' })}
               />
             );
           }}
