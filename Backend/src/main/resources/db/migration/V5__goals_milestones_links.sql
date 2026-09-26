@@ -4,6 +4,8 @@ CREATE TABLE goals (
     user_id                UUID          NOT NULL,
     title                  VARCHAR(150)  NOT NULL,
     description            VARCHAR(500)  NULL,
+    related_area           VARCHAR(20)   NULL,
+    target_description     VARCHAR(200)  NULL,
     category               VARCHAR(50)   NOT NULL DEFAULT 'PERSONAL',
     priority               VARCHAR(10)   NOT NULL DEFAULT 'MEDIUM',
     target_date            DATE          NULL,
@@ -20,6 +22,7 @@ CREATE TABLE goals (
 
     CONSTRAINT goals_pk          PRIMARY KEY (id),
     CONSTRAINT goals_user_fk     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT goals_id_user_uq  UNIQUE (id, user_id),
     CONSTRAINT goals_priority_ck CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'URGENT')),
     CONSTRAINT goals_tracking_ck CHECK (progress_tracking_type IN ('PERCENTAGE', 'NUMERICAL', 'MILESTONE_BASED')),
     CONSTRAINT goals_status_ck   CHECK (status IN ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'PAUSED'))
@@ -41,43 +44,35 @@ CREATE TABLE milestones (
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ  NULL,
 
-    CONSTRAINT milestones_pk      PRIMARY KEY (id),
-    CONSTRAINT milestones_goal_fk FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
-    CONSTRAINT milestones_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT milestones_pk         PRIMARY KEY (id),
+    CONSTRAINT milestones_user_fk    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT milestones_goal_fk    FOREIGN KEY (goal_id, user_id) REFERENCES goals(id, user_id) ON DELETE CASCADE,
+    CONSTRAINT milestones_id_user_uq UNIQUE (id, user_id)
 );
 
+CREATE INDEX idx_milestones_goal ON milestones (goal_id);
 CREATE TRIGGER trg_milestones_updated_at BEFORE UPDATE ON milestones FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
--- Foreign keys on tasks referencing goals and milestones
-ALTER TABLE tasks ADD CONSTRAINT tasks_goal_fk FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE SET NULL;
-ALTER TABLE tasks ADD CONSTRAINT tasks_milestone_fk FOREIGN KEY (milestone_id) REFERENCES milestones(id) ON DELETE SET NULL;
+-- Foreign keys on tasks referencing goals and milestones (same-user composite FK)
+ALTER TABLE tasks ADD CONSTRAINT tasks_goal_fk
+  FOREIGN KEY (goal_id, user_id) REFERENCES goals(id, user_id) ON DELETE SET NULL (goal_id);
 
-CREATE TABLE goal_links (
-    id          UUID        NOT NULL DEFAULT gen_random_uuid(),
-    goal_id     UUID        NOT NULL,
-    user_id     UUID        NOT NULL,
-    entity_type VARCHAR(20) NOT NULL,
-    entity_id   UUID        NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT goal_links_pk      PRIMARY KEY (id),
-    CONSTRAINT goal_links_goal_fk FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
-    CONSTRAINT goal_links_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT goal_links_type_ck CHECK (entity_type IN ('TASK', 'HABIT', 'LEARNING', 'EXPENSE', 'TRIP', 'HEALTH')),
-    CONSTRAINT goal_links_uq      UNIQUE (goal_id, entity_type, entity_id)
-);
+ALTER TABLE tasks ADD CONSTRAINT tasks_milestone_fk
+  FOREIGN KEY (milestone_id, user_id) REFERENCES milestones(id, user_id) ON DELETE SET NULL (milestone_id);
 
 CREATE TABLE goal_progress_history (
     id             UUID          NOT NULL DEFAULT gen_random_uuid(),
     goal_id        UUID          NOT NULL,
     user_id        UUID          NOT NULL,
-    recorded_date  DATE          NOT NULL DEFAULT CURRENT_DATE,
+    recorded_date  DATE          NOT NULL,
     previous_value NUMERIC(10,2) NOT NULL,
     new_value      NUMERIC(10,2) NOT NULL,
     notes          VARCHAR(500)  NULL,
     created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
     CONSTRAINT goal_progress_hist_pk      PRIMARY KEY (id),
-    CONSTRAINT goal_progress_hist_goal_fk FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
-    CONSTRAINT goal_progress_hist_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT goal_progress_hist_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT goal_progress_hist_goal_fk FOREIGN KEY (goal_id, user_id) REFERENCES goals(id, user_id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_goal_progress_hist_goal ON goal_progress_history (goal_id);

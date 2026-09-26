@@ -9,11 +9,12 @@ CREATE TABLE tags (
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at  TIMESTAMPTZ NULL,
 
-    CONSTRAINT tags_pk      PRIMARY KEY (id),
-    CONSTRAINT tags_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT tags_name_uq UNIQUE (user_id, name)
+    CONSTRAINT tags_pk        PRIMARY KEY (id),
+    CONSTRAINT tags_user_fk   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT tags_id_user_uq UNIQUE (id, user_id)
 );
 
+CREATE UNIQUE INDEX idx_tags_user_name ON tags (user_id, name) WHERE deleted_at IS NULL;
 CREATE TRIGGER trg_tags_updated_at BEFORE UPDATE ON tags FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 CREATE TABLE categories (
@@ -30,8 +31,8 @@ CREATE TABLE categories (
 
     CONSTRAINT categories_pk        PRIMARY KEY (id),
     CONSTRAINT categories_user_fk   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT categories_unique_uq UNIQUE (user_id, domain_type, name),
     CONSTRAINT categories_domain_ck CHECK (domain_type IN ('TASK', 'EVENT', 'EXPENSE'))
 );
 
+CREATE UNIQUE INDEX idx_categories_user_domain_name ON categories (user_id, domain_type, name) WHERE deleted_at IS NULL;
 CREATE TRIGGER trg_categories_updated_at BEFORE UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();

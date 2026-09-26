@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_BASE_URL = 'http://10.0.2.2:8080/api/v1'; // Standard Android emulator localhost mapped URL
+export const API_BASE_URL = 'http://10.0.2.2:8081/api/v1'; // Standard Android emulator localhost mapped URL (Spring Boot port 8081)
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

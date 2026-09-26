@@ -8,17 +8,30 @@ Documentation/
 target/
 **/target/
 
-# Environment files with secrets
+# Environment files with secrets & credentials
 .env
 *.env
 .env.local
+**/application-dev.yml
+**/application-local.yml
+**/application-test.yml
+*serviceAccountKey*.json
+*serviceAccount*.json
+*.json.json
+*.pem
+*.key
+*.p12
+*.jks
 
-# IDE configurations
+# IDE configurations & OS files
 .idea/
 *.iml
 .vscode/
 *.log
 *.tmp
+*.bak
+*.swp
+*~
 Thumbs.db
 .DS_Store
 
@@ -28,5 +41,6 @@ node_modules/
 .expo/
 dist/
 scratch/
+
 
 

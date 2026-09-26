@@ -11,7 +11,7 @@ CREATE TABLE transactions (
     description      VARCHAR(500)  NULL,
     category         VARCHAR(50)   NOT NULL,
     payment_method   VARCHAR(20)   NOT NULL DEFAULT 'UPI',
-    transaction_date DATE          NOT NULL DEFAULT CURRENT_DATE,
+    transaction_date DATE          NOT NULL,
     transaction_time TIME          NULL,
     version          BIGINT        NOT NULL DEFAULT 1,
     created_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -20,12 +20,16 @@ CREATE TABLE transactions (
 
     CONSTRAINT transactions_pk        PRIMARY KEY (id),
     CONSTRAINT transactions_user_fk   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT transactions_goal_fk   FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE SET NULL,
+    CONSTRAINT transactions_goal_fk   FOREIGN KEY (goal_id, user_id) REFERENCES goals(id, user_id) ON DELETE SET NULL (goal_id),
     CONSTRAINT transactions_type_ck   CHECK (type IN ('EXPENSE', 'INCOME')),
-    CONSTRAINT transactions_method_ck CHECK (payment_method IN ('CASH', 'UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'NET_BANKING'))
+    CONSTRAINT transactions_method_ck CHECK (payment_method IN ('CASH', 'UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'NET_BANKING')),
+    CONSTRAINT transactions_amount_ck CHECK (amount > 0),
+    CONSTRAINT transactions_currency_ck CHECK (currency ~ '^[A-Z]{3}$')
 );
 
 CREATE INDEX idx_transactions_user_date ON transactions (user_id, transaction_date) WHERE deleted_at IS NULL;
+CREATE INDEX idx_transactions_goal ON transactions (goal_id) WHERE goal_id IS NOT NULL;
+CREATE INDEX idx_transactions_trip ON transactions (trip_id) WHERE trip_id IS NOT NULL;
 CREATE TRIGGER trg_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 CREATE TABLE budgets (
@@ -35,17 +39,18 @@ CREATE TABLE budgets (
     monthly_limit           NUMERIC(12,2) NOT NULL,
     currency                VARCHAR(3)    NOT NULL DEFAULT 'INR',
     alert_threshold_percent SMALLINT      NOT NULL DEFAULT 80,
-    month_year              VARCHAR(7)    NOT NULL,
+    month_start             DATE          NOT NULL,
     version                 BIGINT        NOT NULL DEFAULT 1,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     deleted_at              TIMESTAMPTZ   NULL,
 
-    CONSTRAINT budgets_pk          PRIMARY KEY (id),
-    CONSTRAINT budgets_user_fk     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT budgets_unique      UNIQUE (user_id, category, month_year),
-    CONSTRAINT budgets_limit_ck    CHECK (monthly_limit > 0),
-    CONSTRAINT budgets_thresh_ck   CHECK (alert_threshold_percent BETWEEN 1 AND 100)
+    CONSTRAINT budgets_pk             PRIMARY KEY (id),
+    CONSTRAINT budgets_user_fk        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT budgets_limit_ck       CHECK (monthly_limit > 0),
+    CONSTRAINT budgets_thresh_ck      CHECK (alert_threshold_percent BETWEEN 1 AND 100),
+    CONSTRAINT budgets_month_start_ck CHECK (EXTRACT(DAY FROM month_start) = 1)
 );
 
+CREATE UNIQUE INDEX idx_budgets_unique ON budgets (user_id, category, month_start) WHERE deleted_at IS NULL;
 CREATE TRIGGER trg_budgets_updated_at BEFORE UPDATE ON budgets FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();

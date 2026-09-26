@@ -3,10 +3,23 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### Optionals ###
+### Optionals & Secrets ###
 .env
 *.env
 .env.local
+application-dev.yml
+application-local.yml
+src/main/resources/application-dev.yml
+src/test/resources/application-test.yml
+*serviceAccountKey*.json
+*serviceAccount*.json
+*.json.json
+*.pem
+*.key
+*.p12
+*.jks
+scratch/
+
 
 ### Eclipse ###
 .apt_generated

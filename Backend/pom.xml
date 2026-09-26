@@ -18,11 +18,11 @@
     <description>LIVO Personal Life Operating System Backend API</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <flyway.version>10.17.0</flyway.version>
         <springdoc.version>2.6.0</springdoc.version>
-        <cloudinary.version>2.0.0</cloudinary.version>
+        <cloudinary.version>1.39.0</cloudinary.version>
         <firebase.version>9.3.0</firebase.version>
     </properties>
 
@@ -105,6 +105,13 @@
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
             <version>${firebase.version}</version>
+        </dependency>
+
+        <!-- Apache PDFBox (Zero-latency local PDF text extraction) -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.2</version>
         </dependency>
 
         <!-- OpenAPI / Swagger Documentation -->
