@@ -114,7 +114,7 @@ export const habitService = {
           const today = new Date().toISOString().split('T')[0];
           await apiClient.post(`/habits/${habitId}/log`, {
             logDate: today,
-            isCompleted: true,
+            countCompleted: 1,
           });
         }
       } catch (err) {

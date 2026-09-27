@@ -29,8 +29,11 @@ export const taskService = {
   async getTasks(): Promise<Task[]> {
     try {
       const response = await apiClient.get<{ data: any[] }>('/tasks');
-      const backendTasks = response.data?.data;
-      if (Array.isArray(backendTasks)) {
+      const raw = response.data?.data;
+      const backendTasks = Array.isArray(raw)
+        ? raw
+        : (raw && Array.isArray((raw as any).content) ? (raw as any).content : null);
+      if (backendTasks) {
         const mapped = backendTasks.map(mapBackendTask);
         await storage.setItem(TASKS_KEY, mapped);
         return mapped;
@@ -139,10 +142,7 @@ export const taskService = {
       await storage.setItem(TASKS_KEY, tasks);
 
       try {
-        await apiClient.put(`/tasks/${taskId}`, {
-          title: task.title,
-          status: task.status,
-        });
+        await apiClient.patch(`/tasks/${taskId}/complete`);
       } catch (err) {
         console.warn('Failed to sync toggle completion to backend:', err);
       }
